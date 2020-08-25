@@ -435,7 +435,7 @@ def main():
          elif sys.argv[i] == "-pw": pairwise = True
          else:
             if len(sys.argv[i].split(".")) > 1:
-               if sys.argv[i].split(".")[1] == "out" or sys.argv[i].split(".")[1] == "log" or sys.argv[i].split(".")[1] == "com" or sys.argv[i].split(".")[1] == "gjf" or sys.argv[i].split(".")[1] == "pdb":
+               if sys.argv[i].split(".")[1] == "out" or sys.argv[i].split(".")[1] == "log" or sys.argv[i].split(".")[1] == "com" or sys.argv[i].split(".")[1] == "gjf" or sys.argv[i].split(".")[1] == "pdb" or sys.argv[i].split(".")[1] == "txt":
                   files.append(sys.argv[i])
 
    else: print("\nWrong number of arguments used. Correct format: dftd3.py (-damp zero/bj) (-s6 val) (-rs6 val) (-s8 val) (-a1 val) (-a2 val) (-im on/off) (-pw on/off)file(s)\n"); sys.exit()
@@ -445,6 +445,7 @@ def main():
       if len(file.split(".com"))>1 or len(file.split(".gjf"))>1: fileData = getinData(file)
       if len(file.split(".pdb"))>1: fileData = getpdbData(file)
       if len(file.split(".out"))>1 or len(file.split(".log"))>1: fileData = getoutData(file)
+      if len(file.split(".txt"))>1: fileData = get_simple_data(file)
       fileD3 = calcD3(fileData, fileData.FUNCTIONAL, s6, rs6, s8, bj_a1, bj_a2, damp, abc_term, intermolecular, pairwise, verbose)
 
       attractive_r6_vdw = fileD3.attractive_r6_vdw/autokcal

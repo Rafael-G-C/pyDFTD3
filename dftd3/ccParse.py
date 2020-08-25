@@ -156,3 +156,32 @@ class getoutData:
       outlines = outfile.readlines()
       getMETHOD(self, outlines)
       getATOMTYPES(self, outlines)
+   
+class get_simple_data:
+   def __init__(self,file):
+      self.ATOMTYPES = []
+      self.NATOMS = 0
+      self.FUNCTIONAL = None
+      self.CARTESIANS = []
+      def info_getter(lines):
+         get_geom = False
+         for line in lines:
+            if get_geom == True:
+               geometry_atoms = line.split()
+               self.ATOMTYPES.append(geometry_atoms[0])
+               self.CARTESIANS.append([float(geometry_atoms[1]),float(geometry_atoms[2]),float(geometry_atoms[3])])
+               self.NATOMS += 1
+            elif "geometry" in line:
+               get_geom = True
+               continue
+      
+            elif "functional" in line: 
+               functional_line = line.split(":")
+               self.FUNCTIONAL = functional_line[1].strip().replace("\n","")
+            else:
+               continue
+
+      with open(file) as simple_data:
+         lines = simple_data.readlines()
+         info_getter(lines)
+

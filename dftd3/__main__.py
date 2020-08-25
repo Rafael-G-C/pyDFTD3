@@ -11,7 +11,9 @@ if __package__ == '':
     path = os.path.dirname(os.path.dirname(__file__))
     sys.path.insert(0, path)
 
-from dftd3 import dftd3
+import dftd3
 
 if __name__ == '__main__':
+    sys.argv.append("/home/kilimanjaro/Documents/Nor/pyDFTD3/examples/formic_acid_dimer.com")
+    print(sys.argv)
     sys.exit(dftd3.main())
