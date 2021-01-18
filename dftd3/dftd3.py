@@ -4,13 +4,20 @@
 import math
 import sys
 
-import qcelemental as qcel
-
 # For reading Gaussian formatted input/output files
 from .ccParse import *
+from .constants import (
+    AU_TO_ANG,
+    AU_TO_KCAL,
+    MAX_CONNECTIVITY,
+    MAX_ELEMENTS,
+    ALPHA6,
+    ALPHA8,
+)
 
 # Dependent on parameter file
-from .parameters import *
+from .parameters import BJ_PARMS, R2R4, RAB, ZERO_PARMS, copyc6
+from .utils import E_to_index, getc6, getMollist, lin, ncoord
 
 # THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -41,8 +48,6 @@ from .parameters import *
 #######  Last modified:  Mar 20, 2016 #################################
 #######################################################################
 
-elements = qcel.periodictable.E[1:]
-
 ## Arrays for attractive and repulsive interactions ##
 attractive_vdw = [0]
 repulsive_vdw = [0]
@@ -50,192 +55,12 @@ total_vdw = [0]
 
 ## Functional Specific D3 parameters
 rs8 = 1.0
-repfac = 1.0
-
-## Distance and energy conversion factors ##
-autoang = qcel.constants.conversion_factor("bohr", "angstrom")
-autokcal = qcel.constants.conversion_factor("hartree", "kcal per mol")
-# conversion factor for the C6 coefficient (J mol^-1 nm^-6) to atomic units
-c6conv = 1.0 / (qcel.constants.conversion_factor("hartree", "J per mol") * autoang ** 6)
-
-## Global D3 parameters ##
-## Exponents used in distance dependent damping factors for R6, R8 and R10 terms
-alpha6 = 14
-alpha8 = alpha6 + 2
-alpha10 = alpha8 + 2
-
-## Constants used to determine fractional connectivities between 2 atoms:
-## k1 is the exponent used in summation, k2 is used a fraction of the summed single-bond radii
-k1 = 16.0
-k2 = 4.0 / 3.0
-k3 = -4.0
-
-## D3 is parameterized up to element 94
-max_elem = 94
-## maximum connectivity
-maxc = 5
-
-## From connectivity, establish if there is more than one molecule
-def getMollist(bondmatrix, startatom):
-    # The list of atoms in a molecule
-    atomlist = []
-    atomlist.append(startatom)
-    molecule1 = []
-    nextlot = []
-    count = 0
-
-    while count < 100:
-        nextlot = []
-        for atom in atomlist:
-            for i in range(0, len(bondmatrix[atom])):
-                if bondmatrix[atom][i] == 1:
-                    alreadyfound = 0
-                    for at in atomlist:
-                        if i == at:
-                            alreadyfound = 1
-                    if alreadyfound == 0:
-                        atomlist.append(i)
-        count = count + 1
-
-    return atomlist
-
-
-## DFT derived values for diatomic cutoff radii from Grimme ##
-## These are read from pars.py and converted from atomic units into Angstrom
-r = [[0] * max_elem for x in range(max_elem)]
-
-k = 0
-for i in range(0, max_elem):
-    for j in range(0, i + 1):
-        r[i][j] = R0AB[k] / autoang
-        r[j][i] = R0AB[k] / autoang
-        k = k + 1
-
-## PBE0/def2-QZVP atomic values for multipole coefficients read from pars.py ##
-for i in range(0, max_elem):
-    dum = 0.5 * R2R4[i] * float(i + 1) ** 0.5
-    R2R4[i] = math.pow(dum, 0.5)
-
-## Reference systems are read in to compute coordination number dependent dispersion coefficients
-def copyc6(max_elem, maxc):
-    c6ab = [[0] * max_elem for x in range(max_elem)]
-    nlines = 32385
-
-    for iat in range(0, max_elem):
-        for jat in range(0, max_elem):
-            c6ab[iat][jat] = [[0] * maxc for x in range(maxc)]
-    kk = 0
-
-    for nn in range(0, nlines):
-        kk = nn * 5
-        iadr = 0
-        jadr = 0
-        iat = int(PARS[kk + 1]) - 1
-        jat = int(PARS[kk + 2]) - 1
-
-        while iat > 99:
-            iadr = iadr + 1
-            iat = iat - 100
-        while jat > 99:
-            jadr = jadr + 1
-            jat = jat - 100
-
-        c6ab[iat][jat][iadr][jadr] = []
-        c6ab[iat][jat][iadr][jadr].append(PARS[kk])
-        c6ab[iat][jat][iadr][jadr].append(PARS[kk + 3])
-        c6ab[iat][jat][iadr][jadr].append(PARS[kk + 4])
-
-        c6ab[jat][iat][jadr][iadr] = []
-        c6ab[jat][iat][jadr][iadr].append(PARS[kk])
-        c6ab[jat][iat][jadr][iadr].append(PARS[kk + 4])
-        c6ab[jat][iat][jadr][iadr].append(PARS[kk + 3])
-
-    return c6ab
-
-
-# Obtain the C6 coefficient for the interaction between atoms a and b
-def getc6(maxc, max_elem, c6ab, mxc, atomtype, cn, a, b):
-    for i in range(0, max_elem):
-        if atomtype[a].find(elements[i]) > -1:
-            iat = i
-        if atomtype[b].find(elements[i]) > -1:
-            jat = i
-
-    c6mem = -1.0e99
-    rsum = 0.0
-    csum = 0.0
-    c6 = 0.0
-
-    for i in range(0, mxc[iat]):
-        for j in range(0, mxc[jat]):
-            if isinstance(c6ab[iat][jat][i][j], (list, tuple)):
-                c6 = c6ab[iat][jat][i][j][0]
-                if c6 > 0:
-                    c6mem = c6
-                    cn1 = c6ab[iat][jat][i][j][1]
-                    cn2 = c6ab[iat][jat][i][j][2]
-
-                    r = (cn1 - cn[a]) ** 2 + (cn2 - cn[b]) ** 2
-                    tmp1 = math.exp(k3 * r)
-                    rsum = rsum + tmp1
-                    csum = csum + tmp1 * c6
-
-    if rsum > 0:
-        c6 = csum / rsum
-    else:
-        c6 = c6mem
-
-    return c6
-
-
-# Calculation of atomic coordination numbers
-def ncoord(natom, rcov, atomtype, xco, yco, zco, max_elem, autoang, k1, k2):
-    cn = []
-    for i in range(0, natom):
-        xn = 0.0
-        for iat in range(0, natom):
-            if iat != i:
-                dx = xco[iat] - xco[i]
-                dy = yco[iat] - yco[i]
-                dz = zco[iat] - zco[i]
-                r2 = dx * dx + dy * dy + dz * dz
-                r = math.pow(r2, 0.5)
-                r = r
-
-                for k in range(0, max_elem):
-                    if atomtype[i].find(elements[k]) > -1:
-                        Zi = k
-                    if atomtype[iat].find(elements[k]) > -1:
-                        Ziat = k
-
-                rco = rcov[Zi] + rcov[Ziat]
-                rco = rco * k2
-                rr = rco / r
-                damp = 1.0 / (1.0 + math.exp(-k1 * (rr - 1.0)))
-                xn = xn + damp
-        cn.append(xn)
-
-    return cn
-
-
-# linear interpolation
-def lin(i1, i2):
-    idum1 = max(i1, i2)
-    idum2 = min(i1, i2)
-    lin = idum2 + idum1 * (idum1 - 1) / 2
-    return lin
-
-
-## Get from pars.py
-c6ab = copyc6(max_elem, maxc)
-
-# verbose = None
 
 ## The computation of the D3 dispersion correction
 class calcD3:
     def __init__(
         self,
-        fileData,
+        data,
         functional,
         s6,
         rs6,
@@ -248,14 +73,17 @@ class calcD3:
         pairwise,
         verbose,
     ):
+        ## Get from pars.py
+        c6ab = copyc6(MAX_ELEMENTS, MAX_CONNECTIVITY)
+
         # verbose = True
         ## Arrays for atoms and Cartesian coordinates ##
         try:
-            atomtype = fileData.ATOMTYPES
-            cartesians = fileData.CARTESIANS
+            atomtype = data.ATOMTYPES
+            cartesians = data.CARTESIANS
         except:
-            atomtype = fileData.atom_types
-            cartesians = fileData.cartesians
+            atomtype = data.atom_types
+            cartesians = data.cartesians
         natom = len(atomtype)
 
         xco = []
@@ -267,8 +95,8 @@ class calcD3:
             zco.append(at[2])
 
         ## In case something clever needs to be done wrt inter and intramolecular interactions
-        if hasattr(fileData, "BONDINDEX"):
-            molAatoms = getMollist(fileData.BONDINDEX, 0)
+        if hasattr(data, "BONDINDEX"):
+            molAatoms = getMollist(data.BONDINDEX, 0)
             mols = []
             for j in range(0, natom):
                 mols.append(0)
@@ -282,40 +110,30 @@ class calcD3:
         self.repulsive_abc = 0.0
 
         mxc = [0]
-        for j in range(0, max_elem):
+        for j in range(0, MAX_ELEMENTS):
             mxc.append(0)
             for k in range(0, natom):
-                if atomtype[k].find(elements[j]) > -1:
-                    for l in range(0, maxc):
+                if E_to_index(atomtype[k]) > -1:
+                    for l in range(0, MAX_CONNECTIVITY):
                         if isinstance(c6ab[j][j][l][l], (list, tuple)):
                             if c6ab[j][j][l][l][0] > 0:
                                 mxc[j] = mxc[j] + 1
                     break
 
         ## Coordination number based on covalent radii
-        cn = ncoord(natom, RCOV, atomtype, xco, yco, zco, max_elem, autoang, k1, k2)
+        cn = ncoord(natom, atomtype, xco, yco, zco)
 
         ## C6 - Need to calculate these from fractional coordination
         # print "\n           R0(Ang)        CN"
         # print "   #########################"
-        x = 0
         for j in range(0, natom):
-            C6jj = getc6(maxc, max_elem, c6ab, mxc, atomtype, cn, j, j)
+            C6jj = getc6(c6ab, mxc, atomtype, cn, j, j)
 
-            for k in range(0, natom):
-                dum = getc6(maxc, max_elem, c6ab, mxc, atomtype, cn, j, k)
-                x = x + dum
-
-            for k in range(0, max_elem):
-                if atomtype[j].find(elements[k]) > -1:
-                    z = k
-
-            dum = 0.5 * autoang * r[z][z]
+            z = E_to_index(atomtype[j])
 
             C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
+            # C10 coefficient
             C10jj = 49.0 / 40.0 * math.pow(C8jj, 2.0) / C6jj
-            # print "  ",(j+1), atomtype[j], "   %.5f" % dum, "   %.5f" % cn[j] #, C6jj, C8jj, C10jj
-        # print "   #########################"
 
         icomp = [0] * 100000
         cc6ab = [0] * 100000
@@ -408,25 +226,25 @@ class calcD3:
                             (k + 1),
                         )
 
-                if scaling == True and hasattr(fileData, "BONDINDEX"):
-                    if fileData.BONDINDEX[j][k] == 1:
+                if scaling == True and hasattr(data, "BONDINDEX"):
+                    if data.BONDINDEX[j][k] == 1:
                         scalefactor = 0
                     for l in range(0, natom):
                         if (
-                            fileData.BONDINDEX[j][l] != 0
-                            and fileData.BONDINDEX[k][l] != 0
+                            data.BONDINDEX[j][l] != 0
+                            and data.BONDINDEX[k][l] != 0
                             and j != k
-                            and fileData.BONDINDEX[j][k] == 0
+                            and data.BONDINDEX[j][k] == 0
                         ):
                             scalefactor = 0
                         for m in range(0, natom):
                             if (
-                                fileData.BONDINDEX[j][l] != 0
-                                and fileData.BONDINDEX[l][m] != 0
-                                and fileData.BONDINDEX[k][m] != 0
+                                data.BONDINDEX[j][l] != 0
+                                and data.BONDINDEX[l][m] != 0
+                                and data.BONDINDEX[k][m] != 0
                                 and j != m
                                 and k != l
-                                and fileData.BONDINDEX[j][m] == 0
+                                and data.BONDINDEX[j][m] == 0
                             ):
                                 scalefactor = 1 / 1.2
 
@@ -440,33 +258,30 @@ class calcD3:
                     )
                     totdist = math.sqrt(totdist)
 
-                    C6jk = getc6(maxc, max_elem, c6ab, mxc, atomtype, cn, j, k)
+                    C6jk = getc6(c6ab, mxc, atomtype, cn, j, k)
 
                     ## C8 parameters depend on C6 recursively
-                    for l in range(0, max_elem):
-                        if atomtype[j].find(elements[l]) > -1:
-                            atomA = l
-                        if atomtype[k].find(elements[l]) > -1:
-                            atomB = l
+                    atomA = E_to_index(atomtype[j])
+                    atomB = E_to_index(atomtype[k])
 
                     C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
                     C10jk = 49.0 / 40.0 * math.pow(C8jk, 2.0) / C6jk
 
                     # Evaluation of the attractive term dependent on R^-6 and R^-8
                     if damp == "zero":
-                        dist = totdist / autoang
-                        rr = r[atomA][atomB] / dist
+                        dist = totdist / AU_TO_ANG
+                        rr = RAB[atomA][atomB] / dist
                         tmp1 = rs6 * rr
-                        damp6 = 1 / (1 + 6 * math.pow(tmp1, alpha6))
+                        damp6 = 1 / (1 + 6 * math.pow(tmp1, ALPHA6))
                         tmp2 = rs8 * rr
-                        damp8 = 1 / (1 + 6 * math.pow(tmp2, alpha8))
+                        damp8 = 1 / (1 + 6 * math.pow(tmp2, ALPHA8))
 
                         self.attractive_r6_term = (
                             -s6
                             * C6jk
                             * damp6
                             / math.pow(dist, 6)
-                            * autokcal
+                            * AU_TO_KCAL
                             * scalefactor
                         )
                         self.attractive_r8_term = (
@@ -474,13 +289,13 @@ class calcD3:
                             * C8jk
                             * damp8
                             / math.pow(dist, 8)
-                            * autokcal
+                            * AU_TO_KCAL
                             * scalefactor
                         )
 
                     if damp == "bj":
-                        dist = totdist / autoang
-                        rr = r[atomA][atomB] / dist
+                        dist = totdist / AU_TO_ANG
+                        rr = RAB[atomA][atomB] / dist
                         rr = math.pow((C8jk / C6jk), 0.5)
                         tmp1 = a1 * rr + a2
                         damp6 = math.pow(tmp1, 6)
@@ -490,14 +305,14 @@ class calcD3:
                             -s6
                             * C6jk
                             / (math.pow(dist, 6) + damp6)
-                            * autokcal
+                            * AU_TO_KCAL
                             * scalefactor
                         )
                         self.attractive_r8_term = (
                             -s8
                             * C8jk
                             / (math.pow(dist, 8) + damp8)
-                            * autokcal
+                            * AU_TO_KCAL
                             * scalefactor
                         )
 
@@ -542,7 +357,7 @@ class calcD3:
                             and icomp[jk] != 0
                         ):
                             rav = (4.0 / 3.0) / (dmp[ik] * dmp[jk] * dmp[ij])
-                            tmp = 1.0 / (1.0 + 6.0 * rav ** alpha6)
+                            tmp = 1.0 / (1.0 + 6.0 * rav ** ALPHA6)
 
                             c9 = cc6ab[ij] * cc6ab[ik] * cc6ab[jk]
                             d2 = [0] * 3
@@ -555,7 +370,7 @@ class calcD3:
                             ang = 0.375 * t1 * t2 * t3 + 1.0
                             e63 = e63 + tmp * c9 * ang / (d2[0] * d2[1] * d2[2]) ** 1.50
 
-        self.repulsive_abc_term = s6 * e63 * autokcal
+        self.repulsive_abc_term = s6 * e63 * AU_TO_KCAL
         self.repulsive_abc = self.repulsive_abc + self.repulsive_abc_term
 
 
@@ -612,19 +427,19 @@ def main():
         )
         sys.exit()
 
-    for file in files:
+    for f in files:
         ## Use ccParse to get the Cartesian coordinates from Gaussian input/output files
-        if len(file.split(".com")) > 1 or len(file.split(".gjf")) > 1:
-            fileData = getinData(file)
-        if len(file.split(".pdb")) > 1:
-            fileData = getpdbData(file)
-        if len(file.split(".out")) > 1 or len(file.split(".log")) > 1:
-            fileData = getoutData(file)
-        if len(file.split(".txt")) > 1:
-            fileData = get_simple_data(file)
+        if len(f.split(".com")) > 1 or len(f.split(".gjf")) > 1:
+            data = getinData(f)
+        if len(f.split(".pdb")) > 1:
+            data = getpdbData(f)
+        if len(f.split(".out")) > 1 or len(f.split(".log")) > 1:
+            data = getoutData(f)
+        if len(f.split(".txt")) > 1:
+            data = get_simple_data(f)
         fileD3 = calcD3(
-            fileData,
-            fileData.FUNCTIONAL,
+            data,
+            data.FUNCTIONAL,
             s6,
             rs6,
             s8,
@@ -637,12 +452,12 @@ def main():
             verbose,
         )
 
-        attractive_r6_vdw = fileD3.attractive_r6_vdw / autokcal
-        attractive_r8_vdw = fileD3.attractive_r8_vdw / autokcal
+        attractive_r6_vdw = fileD3.attractive_r6_vdw / AU_TO_KCAL
+        attractive_r8_vdw = fileD3.attractive_r8_vdw / AU_TO_KCAL
 
         # Output includes 3-body term
         if abc_term == True:
-            repulsive_abc = fileD3.repulsive_abc / autokcal
+            repulsive_abc = fileD3.repulsive_abc / AU_TO_KCAL
             total_vdw = attractive_r6_vdw + attractive_r8_vdw + repulsive_abc
             if verbose:
                 print(
@@ -655,7 +470,7 @@ def main():
                 )
             print(
                 "  ",
-                file.ljust(30),
+                f.ljust(30),
                 "   %.8f" % attractive_r6_vdw,
                 "   %.8f" % attractive_r8_vdw,
                 "   %.8f" % repulsive_abc,
@@ -675,7 +490,7 @@ def main():
                 )
             print(
                 "  ",
-                file.ljust(30),
+                f.ljust(30),
                 "   %.18f" % attractive_r6_vdw,
                 "   %.18f" % attractive_r8_vdw,
                 "   %.18f" % total_vdw,

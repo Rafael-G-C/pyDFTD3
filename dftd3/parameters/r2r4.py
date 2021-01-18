@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from math import sqrt
 
 """PBE0/def2-QZVP atomic values for multipole coefficients."""
 
-R2R4 = [
+_R2R4 = [
     8.0589,
     3.4698,
     29.0974,
@@ -99,3 +100,5 @@ R2R4 = [
     15.1226,
     16.1576,
 ]
+
+R2R4 = [sqrt(0.5 * x * sqrt(i + 1)) for i, x in enumerate(_R2R4)]

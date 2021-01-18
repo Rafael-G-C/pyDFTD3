@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from ..constants import AU_TO_ANG, MAX_ELEMENTS
 
 """DFT derived values for diatomic cutoff radii from Grimme."""
 
@@ -4470,3 +4471,13 @@ R0AB = [
     4.3265,
     4.4341,
 ]
+
+
+RAB = [[0] * MAX_ELEMENTS for _ in range(MAX_ELEMENTS)]
+
+k = 0
+for i in range(0, MAX_ELEMENTS):
+    for j in range(0, i + 1):
+        RAB[i][j] = R0AB[k] / AU_TO_ANG
+        RAB[j][i] = R0AB[k] / AU_TO_ANG
+        k += 1
