@@ -1,12 +1,12 @@
 #!/usr/bin/python
-from __future__ import absolute_import, print_function
+# -*- coding: utf-8 -*-
 
-# Python libraries
 import math
 import sys
 
 # For reading Gaussian formatted input/output files
 from .ccParse import *
+
 # Dependent on parameter file
 from .pars import *
 
@@ -38,7 +38,6 @@ from .pars import *
 #######  Written by:  Rob Paton and Kelvin Jackson ####################
 #######  Last modified:  Mar 20, 2016 #################################
 #######################################################################
-
 
 
 ## Check for integer when parsing ##
