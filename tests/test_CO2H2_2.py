@@ -5,15 +5,23 @@ from pathlib import Path
 
 import pytest
 
-from dftd3.ccParse import get_simple_data
+from dftd3.ccParse import get_simple_data, getinData, getoutData
 from dftd3.dftd3 import autokcal, calcD3
 
 
-def test_CO2H2_2():
-    here = Path(__file__).parents[1]
-    inp_file = here / "examples/formic_acid_dimer.txt"
+HERE = Path(__file__).parents[1]
 
-    data = get_simple_data(inp_file)
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        (get_simple_data(HERE / "examples/formic_acid_dimer.txt")),
+        (getinData(HERE / "examples/formic_acid_dimer.com")),
+        (getoutData(HERE / "examples/formic_acid_dimer.log")),
+    ],
+    ids=["from_txt", "from_com", "from_log"]
+)
+def test_CO2H2_2(data):
     d3out = calcD3(
         fileData=data,
         functional=data.FUNCTIONAL,
