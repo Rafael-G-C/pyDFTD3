@@ -4,10 +4,11 @@
 import math
 import sys
 
-from qcelemental import periodictable
+import qcelemental as qcel
 
 # For reading Gaussian formatted input/output files
 from .ccParse import *
+
 # Dependent on parameter file
 from .parameters import *
 
@@ -40,16 +41,7 @@ from .parameters import *
 #######  Last modified:  Mar 20, 2016 #################################
 #######################################################################
 
-elements = periodictable.E[1:]
-
-## Check for integer when parsing ##
-def is_number(s):
-    try:
-        int(s)
-        return True
-    except ValueError:
-        return False
-
+elements = qcel.periodictable.E[1:]
 
 ## Arrays for attractive and repulsive interactions ##
 attractive_vdw = [0]
@@ -61,9 +53,10 @@ rs8 = 1.0
 repfac = 1.0
 
 ## Distance and energy conversion factors ##
-autoang = 0.52917726
-autokcal = 627.509541
-c6conv = (0.001 / 2625.4999) / (0.052917726 ** 6)
+autoang = qcel.constants.conversion_factor("bohr", "angstrom")
+autokcal = qcel.constants.conversion_factor("hartree", "kcal per mol")
+# conversion factor for the C6 coefficient (J mol^-1 nm^-6) to atomic units
+c6conv = 1.0 / (qcel.constants.conversion_factor("hartree", "J per mol") * autoang ** 6)
 
 ## Global D3 parameters ##
 ## Exponents used in distance dependent damping factors for R6, R8 and R10 terms
