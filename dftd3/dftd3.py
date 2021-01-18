@@ -328,16 +328,12 @@ class calcD3:
             if verbose:
                 print("\n   D3-dispersion correction with zero-damping:", end=" ")
             if s6 == 0.0 or rs6 == 0.0 or s8 == 0.0:
-                if functional != None:
-                    for parm in ZERO_PARMS:
-                        if functional == parm[0]:
-                            [s6, rs6, s8] = parm[1:4]
-                            if verbose:
-                                print(
-                                    "detected",
-                                    parm[0],
-                                    "functional - using default zero-damping parameters",
-                                )
+                if functional is not None:
+                    s6, rs6, s8 = ZERO_PARMS[functional]
+                    if verbose:
+                        print(
+                            f"detected {functional} functional - using default zero-damping parameters",
+                        )
                 else:
                     if verbose:
                         print(
@@ -358,16 +354,12 @@ class calcD3:
                     "\n   D3-dispersion correction with Becke_Johnson damping:", end=" "
                 )
             if s6 == 0.0 or s8 == 0.0 or a1 == 0.0 or a2 == 0.0:
-                if functional != None:
-                    for parm in BJ_PARMS:
-                        if functional == parm[0]:
-                            [s6, a1, s8, a2] = parm[1:5]
-                            if verbose:
-                                print(
-                                    "detected",
-                                    parm[0],
-                                    "functional - using default BJ-damping parameters",
-                                )
+                if functional is not None:
+                    s6, a1, s8, a2 = BJ_PARMS[functional]
+                    if verbose:
+                        print(
+                            f"detected {functional} functional - using default BJ-damping parameters",
+                        )
                 else:
                     if verbose:
                         print(
