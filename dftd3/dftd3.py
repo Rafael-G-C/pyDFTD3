@@ -4,11 +4,12 @@
 import math
 import sys
 
+from qcelemental import periodictable
+
 # For reading Gaussian formatted input/output files
 from .ccParse import *
-
 # Dependent on parameter file
-from .pars import *
+from .parameters import *
 
 # THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 # IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -39,6 +40,7 @@ from .pars import *
 #######  Last modified:  Mar 20, 2016 #################################
 #######################################################################
 
+elements = periodictable.E[1:]
 
 ## Check for integer when parsing ##
 def is_number(s):
@@ -112,14 +114,14 @@ r = [[0] * max_elem for x in range(max_elem)]
 k = 0
 for i in range(0, max_elem):
     for j in range(0, i + 1):
-        r[i][j] = r0ab[k] / autoang
-        r[j][i] = r0ab[k] / autoang
+        r[i][j] = R0AB[k] / autoang
+        r[j][i] = R0AB[k] / autoang
         k = k + 1
 
 ## PBE0/def2-QZVP atomic values for multipole coefficients read from pars.py ##
 for i in range(0, max_elem):
-    dum = 0.5 * r2r4[i] * float(i + 1) ** 0.5
-    r2r4[i] = math.pow(dum, 0.5)
+    dum = 0.5 * R2R4[i] * float(i + 1) ** 0.5
+    R2R4[i] = math.pow(dum, 0.5)
 
 ## Reference systems are read in to compute coordination number dependent dispersion coefficients
 def copyc6(max_elem, maxc):
@@ -135,8 +137,8 @@ def copyc6(max_elem, maxc):
         kk = nn * 5
         iadr = 0
         jadr = 0
-        iat = int(pars[kk + 1]) - 1
-        jat = int(pars[kk + 2]) - 1
+        iat = int(PARS[kk + 1]) - 1
+        jat = int(PARS[kk + 2]) - 1
 
         while iat > 99:
             iadr = iadr + 1
@@ -146,14 +148,14 @@ def copyc6(max_elem, maxc):
             jat = jat - 100
 
         c6ab[iat][jat][iadr][jadr] = []
-        c6ab[iat][jat][iadr][jadr].append(pars[kk])
-        c6ab[iat][jat][iadr][jadr].append(pars[kk + 3])
-        c6ab[iat][jat][iadr][jadr].append(pars[kk + 4])
+        c6ab[iat][jat][iadr][jadr].append(PARS[kk])
+        c6ab[iat][jat][iadr][jadr].append(PARS[kk + 3])
+        c6ab[iat][jat][iadr][jadr].append(PARS[kk + 4])
 
         c6ab[jat][iat][jadr][iadr] = []
-        c6ab[jat][iat][jadr][iadr].append(pars[kk])
-        c6ab[jat][iat][jadr][iadr].append(pars[kk + 4])
-        c6ab[jat][iat][jadr][iadr].append(pars[kk + 3])
+        c6ab[jat][iat][jadr][iadr].append(PARS[kk])
+        c6ab[jat][iat][jadr][iadr].append(PARS[kk + 4])
+        c6ab[jat][iat][jadr][iadr].append(PARS[kk + 3])
 
     return c6ab
 
@@ -298,7 +300,7 @@ class calcD3:
                     break
 
         ## Coordination number based on covalent radii
-        cn = ncoord(natom, rcov, atomtype, xco, yco, zco, max_elem, autoang, k1, k2)
+        cn = ncoord(natom, RCOV, atomtype, xco, yco, zco, max_elem, autoang, k1, k2)
 
         ## C6 - Need to calculate these from fractional coordination
         # print "\n           R0(Ang)        CN"
@@ -317,7 +319,7 @@ class calcD3:
 
             dum = 0.5 * autoang * r[z][z]
 
-            C8jj = 3.0 * C6jj * math.pow(r2r4[z], 2.0)
+            C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
             C10jj = 49.0 / 40.0 * math.pow(C8jj, 2.0) / C6jj
             # print "  ",(j+1), atomtype[j], "   %.5f" % dum, "   %.5f" % cn[j] #, C6jj, C8jj, C10jj
         # print "   #########################"
@@ -334,7 +336,7 @@ class calcD3:
                 print("\n   D3-dispersion correction with zero-damping:", end=" ")
             if s6 == 0.0 or rs6 == 0.0 or s8 == 0.0:
                 if functional != None:
-                    for parm in zero_parms:
+                    for parm in ZERO_PARMS:
                         if functional == parm[0]:
                             [s6, rs6, s8] = parm[1:4]
                             if verbose:
@@ -364,7 +366,7 @@ class calcD3:
                 )
             if s6 == 0.0 or s8 == 0.0 or a1 == 0.0 or a2 == 0.0:
                 if functional != None:
-                    for parm in bj_parms:
+                    for parm in BJ_PARMS:
                         if functional == parm[0]:
                             [s6, a1, s8, a2] = parm[1:5]
                             if verbose:
@@ -462,7 +464,7 @@ class calcD3:
                         if atomtype[k].find(elements[l]) > -1:
                             atomB = l
 
-                    C8jk = 3.0 * C6jk * r2r4[atomA] * r2r4[atomB]
+                    C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
                     C10jk = 49.0 / 40.0 * math.pow(C8jk, 2.0) / C6jk
 
                     # Evaluation of the attractive term dependent on R^-6 and R^-8
