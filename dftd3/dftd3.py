@@ -4,7 +4,7 @@
 import math
 import sys
 
-# For reading Gaussian formatted input/output files
+from .cli import cli
 from .ccParse import *
 from .constants import (
     AU_TO_ANG,
@@ -14,8 +14,6 @@ from .constants import (
     ALPHA6,
     ALPHA8,
 )
-
-# Dependent on parameter file
 from .parameters import BJ_PARMS, R2R4, RAB, ZERO_PARMS, copyc6
 from .utils import E_to_index, getc6, getMollist, lin, ncoord
 
@@ -376,56 +374,19 @@ class calcD3:
 
 def main():
     # Takes arguments: (1) damping style, (2) s6, (3) rs6, (4) s8, (5) 3-body on/off, (6) input file(s)
-    files = []
-    verbose = True
-    damp = "zero"
-    s6 = 0.0
-    rs6 = 0.0
-    s8 = 0.0
-    bj_a1 = 0.0
-    bj_a2 = 0.0
-    abc_term = False
-    intermolecular = False
-    pairwise = False
-    if len(sys.argv) > 1:
-        for i in range(1, len(sys.argv)):
-            if sys.argv[i] == "-damp":
-                damp = sys.argv[i + 1]
-            elif sys.argv[i] == "-s6":
-                s6 = float(sys.argv[i + 1])
-            elif sys.argv[i] == "-terse":
-                verbose = False
-            elif sys.argv[i] == "-rs6":
-                rs6 = float(sys.argv[i + 1])
-            elif sys.argv[i] == "-s8":
-                s8 = float(sys.argv[i + 1])
-            elif sys.argv[i] == "-a1":
-                bj_a1 = float(sys.argv[i + 1])
-            elif sys.argv[i] == "-a2":
-                bj_a2 = float(sys.argv[i + 1])
-            elif sys.argv[i] == "-3body":
-                abc_term = True
-            elif sys.argv[i] == "-im":
-                intermolecular = True
-            elif sys.argv[i] == "-pw":
-                pairwise = True
-            else:
-                if len(sys.argv[i].split(".")) > 1:
-                    if (
-                        sys.argv[i].split(".")[1] == "out"
-                        or sys.argv[i].split(".")[1] == "log"
-                        or sys.argv[i].split(".")[1] == "com"
-                        or sys.argv[i].split(".")[1] == "gjf"
-                        or sys.argv[i].split(".")[1] == "pdb"
-                        or sys.argv[i].split(".")[1] == "txt"
-                    ):
-                        files.append(sys.argv[i])
+    args = cli()
 
-    else:
-        print(
-            "\nWrong number of arguments used. Correct format: dftd3.py (-damp zero/bj) (-s6 val) (-rs6 val) (-s8 val) (-a1 val) (-a2 val) (-im on/off) (-pw on/off)file(s)\n"
-        )
-        sys.exit()
+    verbose = args.verbose
+    damp = args.damp
+    s6 = args.s6
+    rs6 = args.rs6
+    s8 = args.s8
+    bj_a1 = args.a1
+    bj_a2 = args.a2
+    abc_term = args.three
+    intermolecular = args.inter
+    pairwise = args.pairwise
+    files = args.infiles
 
     for f in files:
         ## Use ccParse to get the Cartesian coordinates from Gaussian input/output files
