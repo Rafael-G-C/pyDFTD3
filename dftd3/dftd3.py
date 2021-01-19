@@ -104,18 +104,18 @@ def d3(
     if bond_index is not None:
         molAatoms = getMollist(bond_index, 0)
         mols = []
-        for j in range(0, natom):
+        for j in range(natom):
             mols.append(0)
             for atom in molAatoms:
                 if atom == j:
                     mols[j] = 1
 
     mxc = [0]
-    for j in range(0, MAX_ELEMENTS):
+    for j in range(MAX_ELEMENTS):
         mxc.append(0)
-        for k in range(0, natom):
+        for k in range(natom):
             if E_to_index(atoms[k]) > -1:
-                for l in range(0, MAX_CONNECTIVITY):
+                for l in range(MAX_CONNECTIVITY):
                     if isinstance(C6AB[j][j][l][l], (list, tuple)):
                         if C6AB[j][j][l][l][0] > 0:
                             mxc[j] = mxc[j] + 1
@@ -125,7 +125,7 @@ def d3(
     cn = ncoord(natom, atoms, xco, yco, zco)
 
     # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
-    for j in range(0, natom):
+    for j in range(natom):
         # C6 coefficient
         C6jj = getc6(C6AB, mxc, atoms, cn, j, j)
 
@@ -177,7 +177,7 @@ def d3(
                 "   Only computing intermolecular dispersion interactions! This is not the total D3-correction\n"
             )
 
-    for j in range(0, natom):
+    for j in range(natom):
         ## This could be used to 'switch off' dispersion between bonded or geminal atoms ##
         scaling = False
         for k in range(j + 1, natom):
@@ -191,7 +191,7 @@ def d3(
             if scaling == True and bond_index is not None:
                 if bond_index[j][k] == 1:
                     scalefactor = 0
-                for l in range(0, natom):
+                for l in range(natom):
                     if (
                         bond_index[j][l] != 0
                         and bond_index[k][l] != 0
@@ -199,7 +199,7 @@ def d3(
                         and bond_index[j][k] == 0
                     ):
                         scalefactor = 0
-                    for m in range(0, natom):
+                    for m in range(natom):
                         if (
                             bond_index[j][l] != 0
                             and bond_index[l][m] != 0
@@ -291,8 +291,8 @@ def d3(
                 dmp[jk] = (1.0 / rr) ** (1.0 / 3.0)
 
     e63 = 0.0
-    for iat in range(0, natom):
-        for jat in range(0, natom):
+    for iat in range(natom):
+        for jat in range(natom):
             ij = int(lin(jat, iat))
             if icomp[ij] == 1:
                 for kat in range(jat, natom):
