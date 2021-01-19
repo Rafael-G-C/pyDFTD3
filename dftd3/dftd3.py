@@ -1,5 +1,32 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+#
+# pyDFTD3 -- Python implementation of Grimme's D3 dispersion correction.
+# Copyright (C) 2020 Rob Paton and contributors.
+#
+# This file is part of pyDFTD3.
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+# For information on the complete list of contributors to the
+# pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
+#
 
 import math
 import sys
@@ -18,34 +45,21 @@ from .constants import (
 from .parameters import BJ_PARMS, R2R4, RAB, ZERO_PARMS, C6AB
 from .utils import E_to_index, getc6, getMollist, lin, ncoord
 
-# THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
-# Comments and/or additions are welcome (send e-mail to:
-# robert.paton@chem.ox.ac.uk
+"""
+This was a little exercise to translate Grimme's D3
+Fortran code into Python. There is no new science as such!
+It is possible to implement D3 corrections directly within most
+electronic structure packages so the only possible use for this
+is pedagogic or to look at individual terms of the total
+D3-correction between a pair of atoms or molecules.
+This code will read a Gaussian formatted input/output file and
+compute the D3-density independent dispersion terms without
+modification. Zero and Becke-Johnson damping schemes are both
+implemented.
 
-#######################################################################
-#                          dftd3.py                                   #
-#                                                                     #
-#    This was a little exercise to translate Grimme's D3              #
-#    Fortran code into Python. There is no new science as such!       #
-#    It is possible to implement D3 corrections directly within most  #
-#    electronic structure packages so the only possible use for this  #
-#    is pedagogic or to look at individual terms of the total         #
-#    D3-correction between a pair of atoms or molecules.              #
-#    This code will read a Gaussian formatted input/output file and   #
-#    compute the D3-density independent dispersion terms without      #
-#    modification. Zero and Becke-Johnson damping schemes are both    #
-#    implemented.                                                     #
-#######################################################################
-#######  Written by:  Rob Paton and Kelvin Jackson ####################
-#######  Last modified:  Mar 20, 2016 #################################
-#######################################################################
+Written by:  Rob Paton and Kelvin Jackson
+Last modified:  Mar 20, 2016
+"""
 
 ## Functional Specific D3 parameters
 rs8 = 1.0
