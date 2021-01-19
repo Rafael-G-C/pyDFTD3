@@ -7,7 +7,7 @@ import pytest
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
 from dftd3.constants import AU_TO_KCAL
-from dftd3.dftd3 import calcD3
+from dftd3.dftd3 import d3
 
 HERE = Path(__file__).parents[1]
 
@@ -31,8 +31,9 @@ HERE = Path(__file__).parents[1]
     ids=["from_txt", "from_com", "from_log"],
 )
 def test_CO2H2_2(data, damping, ref):
-    d3out = calcD3(
-        data=data,
+    r6, r8, _ = d3(
+        data.ATOMTYPES,
+        data.CARTESIANS,
         functional=data.FUNCTIONAL,
         s6=0.0,
         rs6=0.0,
@@ -40,12 +41,12 @@ def test_CO2H2_2(data, damping, ref):
         a1=0.0,
         a2=0.0,
         damp=damping,
-        abc=False,
+        threebody=False,
         intermolecular=False,
         pairwise=False,
-        verbose=False,
+        verbose=0,
     )
 
-    d3_au = (d3out.attractive_r6_vdw + d3out.attractive_r8_vdw) / AU_TO_KCAL
+    d3_au = (r6 + r8) / AU_TO_KCAL
 
     assert d3_au == pytest.approx(ref, rel=1.0e-5)

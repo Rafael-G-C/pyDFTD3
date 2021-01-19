@@ -40,3 +40,6 @@ def copyc6(max_elem=MAX_ELEMENTS, maxc=MAX_CONNECTIVITY):
         c6ab[jat][iat][jadr][iadr].append(PARS[kk + 3])
 
     return c6ab
+
+
+C6AB = copyc6(MAX_ELEMENTS, MAX_CONNECTIVITY)
