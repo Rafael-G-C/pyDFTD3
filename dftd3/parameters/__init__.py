@@ -26,3 +26,11 @@
 # For information on the complete list of contributors to the
 # pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
 #
+
+from .bj import BJ_PARMS
+from .c6 import copyc6, C6AB
+from .pars import PARS
+from .r0ab import R0AB, RAB
+from .r2r4 import R2R4
+from .rcov import RCOV
+from .zero import ZERO_PARMS
