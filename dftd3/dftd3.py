@@ -29,7 +29,7 @@
 #
 
 import math
-import sys
+import json
 from prettytable import PrettyTable
 
 from .cli import cli
@@ -357,13 +357,29 @@ def main():
         # parse plain text file
         elif extension == "txt":
             data = get_simple_data(f)
+        elif extension == "json":
+            with open(f, "r") as j:
+                data = json.load(j)
         else:
             raise RuntimeError(f"Unrecognized file format {extension}")
 
+        if isinstance(data, dict):
+            atoms = data["molecule"]["symbols"]
+            # reshape coordinates as (nat, 3) and convert to angstrom
+            coordinates = [[0.0, 0.0, 0.0] for _ in range(len(atoms))]
+            for j in range(3):
+                for i in range(len(atoms)):
+                    coordinates[i][j] = data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+            functional = data["model"]["method"]
+        else:
+            atoms = data.ATOMTYPES
+            coordinates = data.CARTESIANS
+            functional = data.FUNCTIONAL
+
         r6, r8, abc = d3(
-            data.ATOMTYPES,
-            data.CARTESIANS,
-            functional=data.FUNCTIONAL,
+            atoms,
+            coordinates,
+            functional=functional,
             s6=s6,
             rs6=rs6,
             s8=s8,

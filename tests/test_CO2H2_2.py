@@ -28,15 +28,48 @@
 # pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
 #
 
+import json
 from pathlib import Path
 
 import pytest
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
-from dftd3.constants import AU_TO_KCAL
+from dftd3.constants import AU_TO_ANG, AU_TO_KCAL
 from dftd3.dftd3 import d3
 
 HERE = Path(__file__).parents[1]
+
+
+def _from_json(inp):
+    with open(inp, "r") as j:
+        data = json.load(j)
+
+    atomtypes = data["molecule"]["symbols"]
+
+    # reshape coordinates as (nat, 3) and convert to angstrom
+    cartesians = [[0.0, 0.0, 0.0] for _ in range(len(atomtypes))]
+    for j in range(3):
+        for i in range(len(atomtypes)):
+            cartesians[i][j] = data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+
+    functional = data["model"]["method"]
+
+    return atomtypes, cartesians, functional
+
+
+def _from_txt(inp):
+    data = get_simple_data(inp)
+    return data.ATOMTYPES, data.CARTESIANS, data.FUNCTIONAL
+
+
+def _from_com(inp):
+    data = getinData(inp)
+    return data.ATOMTYPES, data.CARTESIANS, data.FUNCTIONAL
+
+
+def _from_log(inp):
+    data = getoutData(inp)
+    return data.ATOMTYPES, data.CARTESIANS, data.FUNCTIONAL
 
 
 # reference numbers from canonical repo
@@ -49,19 +82,20 @@ HERE = Path(__file__).parents[1]
     ],
 )
 @pytest.mark.parametrize(
-    "data",
+    "atoms,coordinates,functional",
     [
-        (get_simple_data(HERE / "examples/formic_acid_dimer.txt")),
-        (getinData(HERE / "examples/formic_acid_dimer.com")),
-        (getoutData(HERE / "examples/formic_acid_dimer.log")),
+        (_from_txt(HERE / "examples/formic_acid_dimer.txt")),
+        (_from_com(HERE / "examples/formic_acid_dimer.com")),
+        (_from_log(HERE / "examples/formic_acid_dimer.log")),
+        (_from_json(HERE / "examples/formic_acid_dimer.json")),
     ],
-    ids=["from_txt", "from_com", "from_log"],
+    ids=["from_txt", "from_com", "from_log", "from_json"],
 )
-def test_CO2H2_2(data, damping, ref):
+def test_CO2H2_2(atoms, coordinates, functional, damping, ref):
     r6, r8, _ = d3(
-        data.ATOMTYPES,
-        data.CARTESIANS,
-        functional=data.FUNCTIONAL,
+        atoms,
+        coordinates,
+        functional=functional,
         s6=0.0,
         rs6=0.0,
         s8=0.0,
