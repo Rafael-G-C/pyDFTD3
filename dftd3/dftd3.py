@@ -87,7 +87,7 @@ def d3(
     attractive_r6_vdw = 0.0
     # van der Waals attractive R^-8
     attractive_r8_vdw = 0.0
-    # Axilrod-Teller-Mu1to 3-body repulsive
+    # Axilrod-Teller-Muto 3-body repulsive
     repulsive_abc = 0.0
 
     natom = len(atoms)
