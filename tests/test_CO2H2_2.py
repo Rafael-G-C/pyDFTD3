@@ -47,10 +47,7 @@ def _from_json(inp):
     atomtypes = data["molecule"]["symbols"]
 
     # reshape coordinates as (nat, 3) and convert to angstrom
-    cartesians = [[0.0, 0.0, 0.0] for _ in range(len(atomtypes))]
-    for j in range(3):
-        for i in range(len(atomtypes)):
-            cartesians[i][j] = data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+    cartesians = [coordinate * AU_TO_ANG for coordinate in data["molecule"]["geometry"]]
 
     functional = data["model"]["method"]
 

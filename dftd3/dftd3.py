@@ -87,18 +87,10 @@ def d3(
     attractive_r6_vdw = 0.0
     # van der Waals attractive R^-8
     attractive_r8_vdw = 0.0
-    # Axilrod-Teller-Muto 3-body repulsive
+    # Axilrod-Teller-Mu1to 3-body repulsive
     repulsive_abc = 0.0
 
     natom = len(atoms)
-
-    xco = []
-    yco = []
-    zco = []
-    for at in coordinates:
-        xco.append(at[0])
-        yco.append(at[1])
-        zco.append(at[2])
 
     # In case something clever needs to be done wrt inter and intramolecular interactions
     if bond_index is not None:
@@ -122,7 +114,7 @@ def d3(
                 break
 
     # Coordination number based on covalent radii
-    cn = ncoord(natom, atoms, xco, yco, zco)
+    cn = ncoord(natom, atoms, coordinates)
 
     # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
     for j in range(natom):
@@ -212,11 +204,11 @@ def d3(
 
             if k > j:
                 ## Pythagoras in 3D to work out distance ##
-                xdist = xco[j] - xco[k]
-                ydist = yco[j] - yco[k]
-                zdist = zco[j] - zco[k]
-                totdist = math.pow(xdist, 2) + math.pow(ydist, 2) + math.pow(zdist, 2)
-                totdist = math.sqrt(totdist)
+                totdist = math.sqrt(
+                    (coordinates[3 * j] - coordinates[3 * k]) ** 2
+                    + (coordinates[3 * j + 1] - coordinates[3 * k + 1]) ** 2
+                    + (coordinates[3 * j + 2] - coordinates[3 * k + 2]) ** 2
+                )
 
                 C6jk = getc6(C6AB, mxc, atoms, cn, j, k)
 
@@ -369,7 +361,9 @@ def main():
             coordinates = [[0.0, 0.0, 0.0] for _ in range(len(atoms))]
             for j in range(3):
                 for i in range(len(atoms)):
-                    coordinates[i][j] = data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+                    coordinates[i][j] = (
+                        data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+                    )
             functional = data["model"]["method"]
         else:
             atoms = data.ATOMTYPES

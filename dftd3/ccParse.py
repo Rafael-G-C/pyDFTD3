@@ -64,13 +64,9 @@ class getpdbData:
             for i in range(0, len(inlines)):
                 if inlines[i].find("ATOM") > -1 or inlines[i].find("HETATM") > -1:
                     self.ATOMTYPES.append((inlines[i].split()[2]))
-                    self.CARTESIANS.append(
-                        [
-                            float(inlines[i].split()[4]),
-                            float(inlines[i].split()[5]),
-                            float(inlines[i].split()[6]),
-                        ]
-                    )
+                    self.CARTESIANS += [
+                        float(coordinate) for coordinate in inlines[i].split()[4:7]
+                    ]
 
         infile = open(file, "r")
         inlines = infile.readlines()
@@ -111,13 +107,9 @@ class getinData:
                 if len(inlines[i].split()) == 0:
                     break
                 elif len(inlines[i].split()) == 4:
-                    self.CARTESIANS.append(
-                        [
-                            float(inlines[i].split()[1]),
-                            float(inlines[i].split()[2]),
-                            float(inlines[i].split()[3]),
-                        ]
-                    )
+                    self.CARTESIANS += [
+                        float(coordinate) for coordinate in inlines[i].split()[1:4]
+                    ]
 
         def getMETHOD(self, inlines):
             self.FUNCTIONAL = None
@@ -208,29 +200,19 @@ class getoutData:
 
                     if anharmonic_geom == 0:
                         if len(outlines[i].split()) > 5:
-                            self.CARTESIANS.append(
-                                [
-                                    float(outlines[i].split()[3]),
-                                    float(outlines[i].split()[4]),
-                                    float(outlines[i].split()[5]),
-                                ]
-                            )
-                        else:
-                            self.CARTESIANS.append(
-                                [
-                                    float(outlines[i].split()[2]),
-                                    float(outlines[i].split()[3]),
-                                    float(outlines[i].split()[4]),
-                                ]
-                            )
-                    if anharmonic_geom == 1:
-                        self.CARTESIANS.append(
-                            [
-                                float(outlines[i].split()[2]),
-                                float(outlines[i].split()[3]),
-                                float(outlines[i].split()[4]),
+                            self.CARTESIANS += [
+                                float(coordinate)
+                                for coordinate in outlines[i].split()[3:6]
                             ]
-                        )
+                        else:
+                            self.CARTESIANS += [
+                                float(coordinate)
+                                for coordinate in outlines[i].split()[2:5]
+                            ]
+                    if anharmonic_geom == 1:
+                        self.CARTESIANS += [
+                            float(coordinate) for coordinate in outlines[i].split()[2:5]
+                        ]
 
         def getMETHOD(self, outlines):
             self.FUNCTIONAL = None
@@ -260,13 +242,9 @@ class get_simple_data:
                 if get_geom == True:
                     geometry_atoms = line.split()
                     self.ATOMTYPES.append(geometry_atoms[0])
-                    self.CARTESIANS.append(
-                        [
-                            float(geometry_atoms[1]),
-                            float(geometry_atoms[2]),
-                            float(geometry_atoms[3]),
-                        ]
-                    )
+                    self.CARTESIANS += [
+                        float(coordinate) for coordinate in geometry_atoms[1:4]
+                    ]
                     self.NATOMS += 1
                 elif "geometry" in line:
                     get_geom = True

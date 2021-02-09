@@ -63,7 +63,7 @@ def getMollist(bondmatrix, startatom):
     return atomlist
 
 
-def ncoord(natom, atomtype, xco, yco, zco, k1=16, k2=4 / 3):
+def ncoord(natom, atomtype, flat_coords, k1=16, k2=4 / 3):
     """Calculation of atomic coordination numbers.
 
     Notes
@@ -77,14 +77,15 @@ def ncoord(natom, atomtype, xco, yco, zco, k1=16, k2=4 / 3):
     """
 
     cn = []
-    for i in range(0, natom):
+    for i in range(natom):
         xn = 0.0
-        for iat in range(0, natom):
+        for iat in range(natom):
             if iat != i:
-                dx = xco[iat] - xco[i]
-                dy = yco[iat] - yco[i]
-                dz = zco[iat] - zco[i]
-                r = sqrt(dx * dx + dy * dy + dz * dz)
+                r = sqrt(
+                    (flat_coords[3 * i] - flat_coords[3 * iat]) ** 2
+                    + (flat_coords[3 * i + 1] - flat_coords[3 * iat + 1]) ** 2
+                    + (flat_coords[3 * i + 2] - flat_coords[3 * iat + 2]) ** 2
+                )
 
                 Zi = E_to_index(atomtype[i])
                 Ziat = E_to_index(atomtype[iat])
