@@ -78,6 +78,10 @@ def ncoord(natom, atomtype, flat_coords, k1=16, k2=4 / 3):
     """
     flat_coords = [coordinate * AU_TO_ANG for coordinate in flat_coords]
     cn = []
+    natom = len(atomtypes)
+    
+    if natom != len(coordinates) // 3:
+         raise RuntimeError("The size of the coordinates and atom types arrays do not match") 
     for i in range(natom):
         xn = 0.0
         for iat in range(natom):
