@@ -34,8 +34,9 @@
 
 import os
 import sys
-
+from .utils import E_to_index
 from qcelemental import periodictable
+from .constants import AU_TO_ANG
 
 
 ## Check for integer when parsing ##
@@ -63,9 +64,10 @@ class getpdbData:
             self.CARTESIANS = []
             for i in range(0, len(inlines)):
                 if inlines[i].find("ATOM") > -1 or inlines[i].find("HETATM") > -1:
-                    self.ATOMTYPES.append((inlines[i].split()[2]))
+                    self.ATOMTYPES.append((E_to_index(inlines[i].split()[2])))
                     self.CARTESIANS += [
-                        float(coordinate) for coordinate in inlines[i].split()[4:7]
+                        float(coordinate) / AU_TO_ANG
+                        for coordinate in inlines[i].split()[4:7]
                     ]
 
         infile = open(file, "r")
@@ -94,7 +96,7 @@ class getinData:
                 if len(inlines[i].split()) == 0:
                     break
                 else:
-                    self.ATOMTYPES.append(inlines[i].split()[0])
+                    self.ATOMTYPES.append(E_to_index(inlines[i].split()[0]))
 
         def getCARTESIANS(self, inlines, natoms):
             self.CARTESIANS = []
@@ -108,7 +110,8 @@ class getinData:
                     break
                 elif len(inlines[i].split()) == 4:
                     self.CARTESIANS += [
-                        float(coordinate) for coordinate in inlines[i].split()[1:4]
+                        float(coordinate) / AU_TO_ANG
+                        for coordinate in inlines[i].split()[1:4]
                     ]
 
         def getMETHOD(self, inlines):
@@ -195,13 +198,13 @@ class getoutData:
                 pass
             else:
                 for i in range(standor + 5, standor + 5 + self.NATOMS):
-                    self.ATOMTYPES.append(elementID(int(outlines[i].split()[1])))
+                    self.ATOMTYPES.append(int(outlines[i].split()[1]) - 1)
                     self.ATOMICTYPES.append(int(outlines[i].split()[2]))
 
                     if anharmonic_geom == 0:
                         if len(outlines[i].split()) > 5:
                             self.CARTESIANS += [
-                                float(coordinate)
+                                float(coordinate) / AU_TO_ANG
                                 for coordinate in outlines[i].split()[3:6]
                             ]
                         else:
@@ -211,7 +214,8 @@ class getoutData:
                             ]
                     if anharmonic_geom == 1:
                         self.CARTESIANS += [
-                            float(coordinate) for coordinate in outlines[i].split()[2:5]
+                            float(coordinate) / AU_TO_ANG
+                            for coordinate in outlines[i].split()[2:5]
                         ]
 
         def getMETHOD(self, outlines):
@@ -241,9 +245,10 @@ class get_simple_data:
             for line in lines:
                 if get_geom == True:
                     geometry_atoms = line.split()
-                    self.ATOMTYPES.append(geometry_atoms[0])
+                    self.ATOMTYPES.append(E_to_index(geometry_atoms[0]))
                     self.CARTESIANS += [
-                        float(coordinate) for coordinate in geometry_atoms[1:4]
+                        float(coordinate) / AU_TO_ANG
+                        for coordinate in geometry_atoms[1:4]
                     ]
                     self.NATOMS += 1
                 elif "geometry" in line:

@@ -33,6 +33,7 @@ from math import exp, sqrt
 from qcelemental import periodictable
 
 from .parameters import RCOV
+from .constants import AU_TO_ANG
 
 
 def E_to_index(element):
@@ -75,7 +76,7 @@ def ncoord(natom, atomtype, flat_coords, k1=16, k2=4 / 3):
 
     These values are copied verbatim from Grimme's code.
     """
-
+    flat_coords = [coordinate * AU_TO_ANG for coordinate in flat_coords]
     cn = []
     for i in range(natom):
         xn = 0.0
@@ -87,8 +88,8 @@ def ncoord(natom, atomtype, flat_coords, k1=16, k2=4 / 3):
                     + (flat_coords[3 * i + 2] - flat_coords[3 * iat + 2]) ** 2
                 )
 
-                Zi = E_to_index(atomtype[i])
-                Ziat = E_to_index(atomtype[iat])
+                Zi = atomtype[i]
+                Ziat = atomtype[iat]
 
                 rco = k2 * (RCOV[Zi] + RCOV[Ziat])
                 rr = rco / r
@@ -118,8 +119,8 @@ def getc6(c6ab, mxc, atomtype, cn, a, b, k3=-4.0):
     """
 
     # atomic charges for atoms A and B, respectively
-    iat = E_to_index(atomtype[a])
-    jat = E_to_index(atomtype[b])
+    iat = atomtype[a]
+    jat = atomtype[b]
 
     c6mem = None
     rsum = 0.0

@@ -36,6 +36,7 @@ import pytest
 from dftd3.ccParse import get_simple_data, getinData, getoutData
 from dftd3.constants import AU_TO_ANG, AU_TO_KCAL
 from dftd3.dftd3 import d3
+from dftd3.utils import E_to_index
 
 HERE = Path(__file__).parents[1]
 
@@ -44,10 +45,10 @@ def _from_json(inp):
     with open(inp, "r") as j:
         data = json.load(j)
 
-    atomtypes = data["molecule"]["symbols"]
+    atomtypes = [E_to_index(atom) for atom in data["molecule"]["symbols"]]
 
     # reshape coordinates as (nat, 3) and convert to angstrom
-    cartesians = [coordinate * AU_TO_ANG for coordinate in data["molecule"]["geometry"]]
+    cartesians = [coordinate for coordinate in data["molecule"]["geometry"]]
 
     functional = data["model"]["method"]
 
@@ -104,7 +105,9 @@ def test_CO2H2_2(atoms, coordinates, functional, damping, ref):
         pairwise=False,
         verbose=0,
     )
-
+    r6 *= AU_TO_KCAL
+    r8 *= AU_TO_KCAL
+    _ *= AU_TO_KCAL
     d3_au = (r6 + r8) / AU_TO_KCAL
 
     assert d3_au == pytest.approx(ref, rel=1.0e-5)
