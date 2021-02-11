@@ -33,6 +33,7 @@ from math import exp, sqrt
 from qcelemental import periodictable
 
 from .parameters import RCOV
+from .constants import AU_TO_ANG
 
 
 def E_to_index(element):
@@ -63,7 +64,7 @@ def getMollist(bondmatrix, startatom):
     return atomlist
 
 
-def ncoord(natom, atomtype, xco, yco, zco, k1=16, k2=4 / 3):
+def ncoord(natom, atomtype, coordinates, k1=16, k2=4 / 3):
     """Calculation of atomic coordination numbers.
 
     Notes
@@ -75,19 +76,25 @@ def ncoord(natom, atomtype, xco, yco, zco, k1=16, k2=4 / 3):
 
     These values are copied verbatim from Grimme's code.
     """
-
+    coordinates = [coordinate * AU_TO_ANG for coordinate in coordinates]
     cn = []
-    for i in range(0, natom):
-        xn = 0.0
-        for iat in range(0, natom):
-            if iat != i:
-                dx = xco[iat] - xco[i]
-                dy = yco[iat] - yco[i]
-                dz = zco[iat] - zco[i]
-                r = sqrt(dx * dx + dy * dy + dz * dz)
 
-                Zi = E_to_index(atomtype[i])
-                Ziat = E_to_index(atomtype[iat])
+    if natom != len(coordinates) // 3:
+        raise RuntimeError(
+            "The size of the coordinates and atom types arrays do not match"
+        )
+    for i in range(natom):
+        xn = 0.0
+        for iat in range(natom):
+            if iat != i:
+                r = sqrt(
+                    (coordinates[3 * i] - coordinates[3 * iat]) ** 2
+                    + (coordinates[3 * i + 1] - coordinates[3 * iat + 1]) ** 2
+                    + (coordinates[3 * i + 2] - coordinates[3 * iat + 2]) ** 2
+                )
+
+                Zi = atomtype[i]
+                Ziat = atomtype[iat]
 
                 rco = k2 * (RCOV[Zi] + RCOV[Ziat])
                 rr = rco / r
@@ -117,8 +124,8 @@ def getc6(c6ab, mxc, atomtype, cn, a, b, k3=-4.0):
     """
 
     # atomic charges for atoms A and B, respectively
-    iat = E_to_index(atomtype[a])
-    jat = E_to_index(atomtype[b])
+    iat = atomtype[a]
+    jat = atomtype[b]
 
     c6mem = None
     rsum = 0.0

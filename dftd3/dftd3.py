@@ -92,14 +92,6 @@ def d3(
 
     natom = len(atoms)
 
-    xco = []
-    yco = []
-    zco = []
-    for at in coordinates:
-        xco.append(at[0])
-        yco.append(at[1])
-        zco.append(at[2])
-
     # In case something clever needs to be done wrt inter and intramolecular interactions
     if bond_index is not None:
         molAatoms = getMollist(bond_index, 0)
@@ -114,7 +106,7 @@ def d3(
     for j in range(MAX_ELEMENTS):
         mxc.append(0)
         for k in range(natom):
-            if E_to_index(atoms[k]) > -1:
+            if atoms[k] > -1:
                 for l in range(MAX_CONNECTIVITY):
                     if isinstance(C6AB[j][j][l][l], (list, tuple)):
                         if C6AB[j][j][l][l][0] > 0:
@@ -122,14 +114,14 @@ def d3(
                 break
 
     # Coordination number based on covalent radii
-    cn = ncoord(natom, atoms, xco, yco, zco)
+    cn = ncoord(natom, atoms, coordinates)
 
     # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
     for j in range(natom):
         # C6 coefficient
         C6jj = getc6(C6AB, mxc, atoms, cn, j, j)
 
-        z = E_to_index(atoms[j])
+        z = atoms[j]
 
         # C8 coefficient
         C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
@@ -212,24 +204,24 @@ def d3(
 
             if k > j:
                 ## Pythagoras in 3D to work out distance ##
-                xdist = xco[j] - xco[k]
-                ydist = yco[j] - yco[k]
-                zdist = zco[j] - zco[k]
-                totdist = math.pow(xdist, 2) + math.pow(ydist, 2) + math.pow(zdist, 2)
-                totdist = math.sqrt(totdist)
+                totdist = math.sqrt(
+                    (coordinates[3 * j] - coordinates[3 * k]) ** 2
+                    + (coordinates[3 * j + 1] - coordinates[3 * k + 1]) ** 2
+                    + (coordinates[3 * j + 2] - coordinates[3 * k + 2]) ** 2
+                )
 
                 C6jk = getc6(C6AB, mxc, atoms, cn, j, k)
 
                 ## C8 parameters depend on C6 recursively
-                atomA = E_to_index(atoms[j])
-                atomB = E_to_index(atoms[k])
+                atomA = atoms[j]
+                atomB = atoms[k]
 
                 C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
                 C10jk = 49.0 / 40.0 * math.pow(C8jk, 2.0) / C6jk
 
                 # Evaluation of the attractive term dependent on R^-6 and R^-8
                 if damp == "zero":
-                    dist = totdist / AU_TO_ANG
+                    dist = totdist
                     rr = RAB[atomA][atomB] / dist
                     tmp1 = rs6 * rr
                     damp6 = 1 / (1 + 6 * math.pow(tmp1, ALPHA6))
@@ -237,24 +229,14 @@ def d3(
                     damp8 = 1 / (1 + 6 * math.pow(tmp2, ALPHA8))
 
                     attractive_r6_term = (
-                        -s6
-                        * C6jk
-                        * damp6
-                        / math.pow(dist, 6)
-                        * AU_TO_KCAL
-                        * scalefactor
+                        -s6 * C6jk * damp6 / math.pow(dist, 6) * scalefactor
                     )
                     attractive_r8_term = (
-                        -s8
-                        * C8jk
-                        * damp8
-                        / math.pow(dist, 8)
-                        * AU_TO_KCAL
-                        * scalefactor
+                        -s8 * C8jk * damp8 / math.pow(dist, 8) * scalefactor
                     )
 
                 if damp == "bj":
-                    dist = totdist / AU_TO_ANG
+                    dist = totdist
                     rr = RAB[atomA][atomB] / dist
                     rr = math.pow((C8jk / C6jk), 0.5)
                     tmp1 = a1 * rr + a2
@@ -262,18 +244,10 @@ def d3(
                     damp8 = math.pow(tmp1, 8)
 
                     attractive_r6_term = (
-                        -s6
-                        * C6jk
-                        / (math.pow(dist, 6) + damp6)
-                        * AU_TO_KCAL
-                        * scalefactor
+                        -s6 * C6jk / (math.pow(dist, 6) + damp6) * scalefactor
                     )
                     attractive_r8_term = (
-                        -s8
-                        * C8jk
-                        / (math.pow(dist, 8) + damp8)
-                        * AU_TO_KCAL
-                        * scalefactor
+                        -s8 * C8jk / (math.pow(dist, 8) + damp8) * scalefactor
                     )
 
                 if pairwise == True and scalefactor != 0:
@@ -314,7 +288,7 @@ def d3(
                         ang = 0.375 * t1 * t2 * t3 + 1.0
                         e63 = e63 + tmp * c9 * ang / (d2[0] * d2[1] * d2[2]) ** 1.50
 
-    repulsive_abc_term = s6 * e63 * AU_TO_KCAL
+    repulsive_abc_term = s6 * e63
     repulsive_abc += repulsive_abc_term
 
     return attractive_r6_vdw, attractive_r8_vdw, repulsive_abc
@@ -369,7 +343,9 @@ def main():
             coordinates = [[0.0, 0.0, 0.0] for _ in range(len(atoms))]
             for j in range(3):
                 for i in range(len(atoms)):
-                    coordinates[i][j] = data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+                    coordinates[i][j] = (
+                        data["molecule"]["geometry"][3 * i + j] * AU_TO_ANG
+                    )
             functional = data["model"]["method"]
         else:
             atoms = data.ATOMTYPES
