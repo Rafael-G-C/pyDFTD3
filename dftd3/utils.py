@@ -64,7 +64,7 @@ def getMollist(bondmatrix, startatom):
     return atomlist
 
 
-def ncoord(natom, atomtype, flat_coords, k1=16, k2=4 / 3):
+def ncoord(atomtype, coordinates, k1=16, k2=4 / 3):
     """Calculation of atomic coordination numbers.
 
     Notes
