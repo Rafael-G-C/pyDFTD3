@@ -64,7 +64,7 @@ def getMollist(bondmatrix, startatom):
     return atomlist
 
 
-def ncoord(atomtype, coordinates, k1=16, k2=4 / 3):
+def ncoord(natom, atomtype, coordinates, k1=16, k2=4 / 3):
     """Calculation of atomic coordination numbers.
 
     Notes
@@ -76,20 +76,21 @@ def ncoord(atomtype, coordinates, k1=16, k2=4 / 3):
 
     These values are copied verbatim from Grimme's code.
     """
-    flat_coords = [coordinate * AU_TO_ANG for coordinate in flat_coords]
+    coordinates = [coordinate * AU_TO_ANG for coordinate in coordinates]
     cn = []
-    natom = len(atomtypes)
-    
+
     if natom != len(coordinates) // 3:
-         raise RuntimeError("The size of the coordinates and atom types arrays do not match") 
+        raise RuntimeError(
+            "The size of the coordinates and atom types arrays do not match"
+        )
     for i in range(natom):
         xn = 0.0
         for iat in range(natom):
             if iat != i:
                 r = sqrt(
-                    (flat_coords[3 * i] - flat_coords[3 * iat]) ** 2
-                    + (flat_coords[3 * i + 1] - flat_coords[3 * iat + 1]) ** 2
-                    + (flat_coords[3 * i + 2] - flat_coords[3 * iat + 2]) ** 2
+                    (coordinates[3 * i] - coordinates[3 * iat]) ** 2
+                    + (coordinates[3 * i + 1] - coordinates[3 * iat + 1]) ** 2
+                    + (coordinates[3 * i + 2] - coordinates[3 * iat + 2]) ** 2
                 )
 
                 Zi = atomtype[i]
