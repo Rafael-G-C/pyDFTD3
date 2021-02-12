@@ -27,7 +27,7 @@
 # pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
 #
 
-"""Becke-Johnson damping parameters."""
+"""Becke-Johnson damping parameters. last updated 1.5 years ago"""
 
 BJ_PARMS = {
     "B2PLYP": [0.64, 0.3065, 0.9147, 5.057],

@@ -27,7 +27,7 @@
 # pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
 #
 
-"""Zero damping parameters."""
+"""Zero damping parameters. last updated 1.5 years ago"""
 
 ZERO_PARMS = {
     "B1B95": [1.0000, 1.6130, 1.8680],

@@ -80,7 +80,7 @@ def _from_log(inp):
     ],
 )
 @pytest.mark.parametrize(
-    "atoms,coordinates,functional",
+    "coordinates,atoms,functional",
     [
         (_from_txt(HERE / "examples/formic_acid_dimer.txt")),
         (_from_com(HERE / "examples/formic_acid_dimer.com")),
@@ -89,7 +89,7 @@ def _from_log(inp):
     ],
     ids=["from_txt", "from_com", "from_log", "from_json"],
 )
-def test_CO2H2_2(atoms, coordinates, functional, damping, ref):
+def test_CO2H2_2(coordinates, atoms, functional, damping, ref):
     r6, r8, _ = d3(
         atoms,
         coordinates,
