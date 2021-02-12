@@ -66,8 +66,8 @@ rs8 = 1.0
 
 
 def d3(
-    atoms,
     coordinates,
+    atoms,
     *,
     functional,
     bond_index=None,
@@ -82,7 +82,7 @@ def d3(
     pairwise=False,
     verbose=1,
 ):
-
+    """ The code has a faithful implementation of D3-zero and D3-BJ. There are also some optional parts that will selectively ignore or scale certain interatomic terms. Without these lines our ‘scalefactor’ is set to 1, which is equivalent to standard D3 terms. """
     # van der Waals attractive R^-6
     attractive_r6_vdw = 0.0
     # van der Waals attractive R^-8
