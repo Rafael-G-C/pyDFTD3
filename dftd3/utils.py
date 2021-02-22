@@ -29,7 +29,7 @@
 
 
 from math import exp, sqrt
-
+import jax.numpy as jnp
 from qcelemental import periodictable
 
 from .parameters import RCOV
@@ -64,7 +64,7 @@ def getMollist(bondmatrix, startatom):
     return atomlist
 
 
-def ncoord(natom, atomtype, coordinates, k1=16, k2=4 / 3):
+def ncoord(natom, charges, coordinates, k1=16, k2=4 / 3):
     """Calculation of atomic coordination numbers.
 
     Notes
@@ -87,18 +87,18 @@ def ncoord(natom, atomtype, coordinates, k1=16, k2=4 / 3):
         xn = 0.0
         for iat in range(natom):
             if iat != i:
-                r = sqrt(
+                r = jnp.sqrt(
                     (coordinates[3 * i] - coordinates[3 * iat]) ** 2
                     + (coordinates[3 * i + 1] - coordinates[3 * iat + 1]) ** 2
                     + (coordinates[3 * i + 2] - coordinates[3 * iat + 2]) ** 2
                 )
 
-                Zi = atomtype[i]
-                Ziat = atomtype[iat]
+                Zi = int(charges[i])
+                Ziat = int(charges[iat])
 
                 rco = k2 * (RCOV[Zi] + RCOV[Ziat])
                 rr = rco / r
-                damp = 1.0 / (1.0 + exp(-k1 * (rr - 1.0)))
+                damp = 1.0 / (1.0 + jnp.exp(-k1 * (rr - 1.0)))
                 xn = xn + damp
         cn.append(xn)
 
@@ -124,8 +124,8 @@ def getc6(c6ab, mxc, atomtype, cn, a, b, k3=-4.0):
     """
 
     # atomic charges for atoms A and B, respectively
-    iat = atomtype[a]
-    jat = atomtype[b]
+    iat = int(atomtype[a])
+    jat = int(atomtype[b])
 
     c6mem = None
     rsum = 0.0
@@ -142,7 +142,7 @@ def getc6(c6ab, mxc, atomtype, cn, a, b, k3=-4.0):
                     cn2 = c6ab[iat][jat][i][j][2]
 
                     r = (cn1 - cn[a]) ** 2 + (cn2 - cn[b]) ** 2
-                    tmp1 = exp(k3 * r)
+                    tmp1 = jnp.exp(k3 * r)
                     rsum = rsum + tmp1
                     csum = csum + tmp1 * c6
 
