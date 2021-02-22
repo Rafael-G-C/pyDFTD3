@@ -27,7 +27,7 @@
 # For information on the complete list of contributors to the
 # pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
 #
-
+import jax.numpy as jnp
 import math
 import json
 from prettytable import PrettyTable
@@ -66,10 +66,9 @@ rs8 = 1.0
 
 
 def d3(
-    atoms,
-    coordinates,
-    *,
-    functional,
+    charges,
+    *coordinates,
+    functional="B3LYP",
     bond_index=None,
     s6=0.0,
     rs6=0.0,
@@ -90,7 +89,7 @@ def d3(
     # Axilrod-Teller-Muto 3-body repulsive
     repulsive_abc = 0.0
 
-    natom = len(atoms)
+    natom = len(charges)
 
     # In case something clever needs to be done wrt inter and intramolecular interactions
     if bond_index is not None:
@@ -106,7 +105,7 @@ def d3(
     for j in range(MAX_ELEMENTS):
         mxc.append(0)
         for k in range(natom):
-            if atoms[k] > -1:
+            if charges[k] > -1:
                 for l in range(MAX_CONNECTIVITY):
                     if isinstance(C6AB[j][j][l][l], (list, tuple)):
                         if C6AB[j][j][l][l][0] > 0:
@@ -114,20 +113,20 @@ def d3(
                 break
 
     # Coordination number based on covalent radii
-    cn = ncoord(atoms, coordinates)
+    cn = ncoord(charges, coordinates)
 
     # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
     for j in range(natom):
         # C6 coefficient
-        C6jj = getc6(C6AB, mxc, atoms, cn, j, j)
+        C6jj = getc6(C6AB, mxc, charges, cn, j, j)
 
-        z = atoms[j]
+        z = int(charges[j])
 
         # C8 coefficient
         C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
 
         # C10 coefficient
-        C10jj = 49.0 / 40.0 * math.pow(C8jj, 2.0) / C6jj
+        C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2.0) / C6jj
 
     icomp = [0] * 100000
     cc6ab = [0] * 100000
@@ -204,35 +203,35 @@ def d3(
 
             if k > j:
                 ## Pythagoras in 3D to work out distance ##
-                totdist = math.sqrt(
+                totdist = jnp.sqrt(
                     (coordinates[3 * j] - coordinates[3 * k]) ** 2
                     + (coordinates[3 * j + 1] - coordinates[3 * k + 1]) ** 2
                     + (coordinates[3 * j + 2] - coordinates[3 * k + 2]) ** 2
                 )
 
-                C6jk = getc6(C6AB, mxc, atoms, cn, j, k)
+                C6jk = getc6(C6AB, mxc, charges, cn, j, k)
 
                 ## C8 parameters depend on C6 recursively
-                atomA = atoms[j]
-                atomB = atoms[k]
+                atomA = int(charges[j])
+                atomB = int(charges[k])
 
                 C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
-                C10jk = 49.0 / 40.0 * math.pow(C8jk, 2.0) / C6jk
+                C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2.0) / C6jk
 
                 # Evaluation of the attractive term dependent on R^-6 and R^-8
                 if damp == "zero":
                     dist = totdist
                     rr = RAB[atomA][atomB] / dist
                     tmp1 = rs6 * rr
-                    damp6 = 1 / (1 + 6 * math.pow(tmp1, ALPHA6))
+                    damp6 = 1 / (1 + 6 * jnp.power(tmp1, ALPHA6))
                     tmp2 = rs8 * rr
-                    damp8 = 1 / (1 + 6 * math.pow(tmp2, ALPHA8))
+                    damp8 = 1 / (1 + 6 * jnp.power(tmp2, ALPHA8))
 
                     attractive_r6_term = (
-                        -s6 * C6jk * damp6 / math.pow(dist, 6) * scalefactor
+                        -s6 * C6jk * damp6 / jnp.power(dist, 6) * scalefactor
                     )
                     attractive_r8_term = (
-                        -s8 * C8jk * damp8 / math.pow(dist, 8) * scalefactor
+                        -s8 * C8jk * damp8 / jnp.power(dist, 8) * scalefactor
                     )
 
                 if damp == "bj":
@@ -260,7 +259,7 @@ def d3(
 
                 jk = int(lin(k, j))
                 icomp[jk] = 1
-                cc6ab[jk] = math.sqrt(C6jk)
+                cc6ab[jk] = jnp.sqrt(C6jk)
                 r2ab[jk] = dist ** 2
                 dmp[jk] = (1.0 / rr) ** (1.0 / 3.0)
 
@@ -282,16 +281,16 @@ def d3(
                         d2[0] = r2ab[ij]
                         d2[1] = r2ab[jk]
                         d2[2] = r2ab[ik]
-                        t1 = (d2[0] + d2[1] - d2[2]) / math.sqrt(d2[0] * d2[1])
-                        t2 = (d2[0] + d2[2] - d2[1]) / math.sqrt(d2[0] * d2[2])
-                        t3 = (d2[2] + d2[1] - d2[0]) / math.sqrt(d2[1] * d2[2])
+                        t1 = (d2[0] + d2[1] - d2[2]) / jnp.sqrt(d2[0] * d2[1])
+                        t2 = (d2[0] + d2[2] - d2[1]) / jnp.sqrt(d2[0] * d2[2])
+                        t3 = (d2[2] + d2[1] - d2[0]) / jnp.sqrt(d2[1] * d2[2])
                         ang = 0.375 * t1 * t2 * t3 + 1.0
                         e63 = e63 + tmp * c9 * ang / (d2[0] * d2[1] * d2[2]) ** 1.50
 
     repulsive_abc_term = s6 * e63
     repulsive_abc += repulsive_abc_term
 
-    return attractive_r6_vdw, attractive_r8_vdw, repulsive_abc
+    return attractive_r6_vdw + attractive_r8_vdw #, repulsive_abc
 
 
 def main():

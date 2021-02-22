@@ -60,11 +60,11 @@ class getpdbData:
             sys.exit()
 
         def getATOMS(self, inlines):
-            self.ATOMTYPES = []
+            self.CHARGES = []
             self.CARTESIANS = []
             for i in range(0, len(inlines)):
                 if inlines[i].find("ATOM") > -1 or inlines[i].find("HETATM") > -1:
-                    self.ATOMTYPES.append((E_to_index(inlines[i].split()[2])))
+                    self.CHARGES.append(float((E_to_index(inlines[i].split()[2]))))
                     self.CARTESIANS += [
                         float(coordinate) / AU_TO_ANG
                         for coordinate in inlines[i].split()[4:7]
@@ -83,8 +83,8 @@ class getinData:
             print("\nFATAL ERROR: Input file [ %s ] does not exist" % file)
             sys.exit()
 
-        def getATOMTYPES(self, inlines):
-            self.ATOMTYPES = []
+        def getCHARGES(self, inlines):
+            self.CHARGES = []
             for i in range(0, len(inlines)):
                 if inlines[i].find("#") > -1:
                     if len(inlines[i + 1].split()) == 0:
@@ -96,7 +96,7 @@ class getinData:
                 if len(inlines[i].split()) == 0:
                     break
                 else:
-                    self.ATOMTYPES.append(E_to_index(inlines[i].split()[0]))
+                    self.CHARGES.append(E_to_index(inlines[i].split()[0]))
 
         def getCARTESIANS(self, inlines, natoms):
             self.CARTESIANS = []
@@ -157,8 +157,8 @@ class getinData:
 
         infile = open(file, "r")
         inlines = infile.readlines()
-        getATOMTYPES(self, inlines)
-        self.NATOMS = len(self.ATOMTYPES)
+        getCHARGES(self, inlines)
+        self.NATOMS = len(self.CHARGES)
         getMETHOD(self, inlines)
         getBONDINDEX(self, inlines, self.NATOMS)
         getCARTESIANS(self, inlines, self.NATOMS)
@@ -171,8 +171,8 @@ class getoutData:
             print("\nFATAL ERROR: Output file [ %s ] does not exist" % file)
             sys.exit()
 
-        def getATOMTYPES(self, outlines):
-            self.ATOMTYPES = []
+        def getCHARGES(self, outlines):
+            self.CHARGES = []
             self.CARTESIANS = []
             self.ATOMICTYPES = []
 
@@ -198,7 +198,7 @@ class getoutData:
                 pass
             else:
                 for i in range(standor + 5, standor + 5 + self.NATOMS):
-                    self.ATOMTYPES.append(int(outlines[i].split()[1]) - 1)
+                    self.CHARGES.append(int(outlines[i].split()[1]) - 1)
                     self.ATOMICTYPES.append(int(outlines[i].split()[2]))
 
                     if anharmonic_geom == 0:
@@ -230,12 +230,12 @@ class getoutData:
             outfile = open(file, "r")
         outlines = outfile.readlines()
         getMETHOD(self, outlines)
-        getATOMTYPES(self, outlines)
+        getCHARGES(self, outlines)
 
 
 class get_simple_data:
     def __init__(self, file):
-        self.ATOMTYPES = []
+        self.CHARGES = []
         self.NATOMS = 0
         self.FUNCTIONAL = None
         self.CARTESIANS = []
@@ -245,7 +245,7 @@ class get_simple_data:
             for line in lines:
                 if get_geom == True:
                     geometry_atoms = line.split()
-                    self.ATOMTYPES.append(E_to_index(geometry_atoms[0]))
+                    self.CHARGES.append(float(E_to_index(geometry_atoms[0])))
                     self.CARTESIANS += [
                         float(coordinate) / AU_TO_ANG
                         for coordinate in geometry_atoms[1:4]
