@@ -27,7 +27,6 @@
 # For information on the complete list of contributors to the
 # pyDFTD3, see: <http://github.com/bobbypaton/pyDFTD3/>
 #
-import jax.numpy as jnp
 import math
 import json
 from prettytable import PrettyTable
@@ -45,6 +44,47 @@ from .constants import (
 from .parameters import BJ_PARMS, R2R4, RAB, ZERO_PARMS, C6AB
 from .utils import E_to_index, getc6, getMollist, lin, ncoord
 
+from itertools import product
+from jax.config import config
+
+config.update("jax_enable_x64", True)
+
+import jax.numpy as jnp
+from jax import grad, jacfwd, jacrev
+
+
+def _derv_sequence(orders):
+    sequence = []
+    for variable, variable_order in enumerate(orders):
+        if variable_order > 0:
+            sequence += variable_order * [variable]
+    return sequence
+
+
+def test_derv_sequence():
+    assert _derv_sequence((3, 2, 1, 0)) == [0, 0, 0, 1, 1, 2]
+    assert _derv_sequence((0, 1, 2, 3)) == [1, 2, 2, 3, 3, 3]
+    assert _derv_sequence((0, 1, 0, 1)) == [1, 3]
+
+
+def derv(fun, variables, orders) -> float:
+    """
+    fun: function to differentiate which expects a certain number of variables
+    variables: list of variables at which to differentiate the function
+    orders: [1, 0, 2, 0] means differentate with respect to variable 1 once,
+                         and differentiate with respect to variable 3 twice.
+    """
+    sequence = _derv_sequence(orders)
+    functions = [fun]
+    for i, order in enumerate(sequence):
+        functions.append(grad(functions[i], (order)))
+    return functions[-1](*variables)
+
+def distribute(indices, num_variables):
+    l = [0 for _ in range(num_variables)]
+    for index in indices:
+        l[index] += 1
+    return l
 """
 This was a little exercise to translate Grimme's D3
 Fortran code into Python. There is no new science as such!
@@ -60,15 +100,21 @@ implemented.
 Written by:  Rob Paton and Kelvin Jackson
 Last modified:  Mar 20, 2016
 """
-
+def derv_dist(j,k,*coordinates):
+    return jnp.sqrt(
+                    (coordinates[3 * j] - coordinates[3 * k]) ** 2
+                    + (coordinates[3 * j + 1] - coordinates[3 * k + 1]) ** 2
+                    + (coordinates[3 * j + 2] - coordinates[3 * k + 2]) ** 2
+                )
 ## Functional Specific D3 parameters
 rs8 = 1.0
 
 
-def d3(
+def D3_derivatives(
+    coordinates,
     charges,
-    *coordinates,
-    functional="B3LYP",
+    *,
+    functional,
     bond_index=None,
     s6=0.0,
     rs6=0.0,
@@ -80,6 +126,7 @@ def d3(
     intermolecular=False,
     pairwise=False,
     verbose=1,
+    order,
 ):
     """ The code has a faithful implementation of D3-zero and D3-BJ. There are also some optional parts that will selectively ignore or scale certain interatomic terms. Without these lines our ‘scalefactor’ is set to 1, which is equivalent to standard D3 terms. """
     # van der Waals attractive R^-6
@@ -89,208 +136,212 @@ def d3(
     # Axilrod-Teller-Muto 3-body repulsive
     repulsive_abc = 0.0
 
+    
     natom = len(charges)
+    dervs = []
+    num_variables = 3 * natom
 
-    # In case something clever needs to be done wrt inter and intramolecular interactions
-    if bond_index is not None:
-        molAatoms = getMollist(bond_index, 0)
-        mols = []
+    combo = product(range(num_variables), repeat=order)
+    derivative_orders = map(lambda x: distribute(x, num_variables), combo)
+
+    for d_order in derivative_orders:
+        # In case something clever needs to be done wrt inter and intramolecular interactions
+        if bond_index is not None:
+            molAatoms = getMollist(bond_index, 0)
+            mols = []
+            for j in range(natom):
+                mols.append(0)
+                for atom in molAatoms:
+                    if atom == j:
+                        mols[j] = 1
+
+        mxc = [0]
+        for j in range(MAX_ELEMENTS):
+            mxc.append(0)
+            for k in range(natom):
+                if charges[k] > -1:
+                    for l in range(MAX_CONNECTIVITY):
+                        if isinstance(C6AB[j][j][l][l], (list, tuple)):
+                            if C6AB[j][j][l][l][0] > 0:
+                                mxc[j] = mxc[j] + 1
+                    break
+
+        # Coordination number based on covalent radii
+        cn = ncoord(natom, charges, coordinates)
+
+        # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
         for j in range(natom):
-            mols.append(0)
-            for atom in molAatoms:
-                if atom == j:
-                    mols[j] = 1
+            # C6 coefficient
+            C6jj = getc6(C6AB, mxc, charges, cn, j, j)
 
-    mxc = [0]
-    for j in range(MAX_ELEMENTS):
-        mxc.append(0)
-        for k in range(natom):
-            if charges[k] > -1:
-                for l in range(MAX_CONNECTIVITY):
-                    if isinstance(C6AB[j][j][l][l], (list, tuple)):
-                        if C6AB[j][j][l][l][0] > 0:
-                            mxc[j] = mxc[j] + 1
-                break
+            z = int(charges[j])
 
-    # Coordination number based on covalent radii
-    cn = ncoord(natom, charges, coordinates)
+            # C8 coefficient
+            C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
 
-    # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
-    for j in range(natom):
-        # C6 coefficient
-        C6jj = getc6(C6AB, mxc, charges, cn, j, j)
+            # C10 coefficient
+            C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2.0) / C6jj
 
-        z = int(charges[j])
+        icomp = [0] * 100000
+        cc6ab = [0] * 100000
+        r2ab = [0] * 100000
+        dmp = [0] * 100000
 
-        # C8 coefficient
-        C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
-
-        # C10 coefficient
-        C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2.0) / C6jj
-
-    icomp = [0] * 100000
-    cc6ab = [0] * 100000
-    r2ab = [0] * 100000
-    dmp = [0] * 100000
-
-    ## Compute and output the individual components of the D3 energy correction ##
-    if verbose:
-        which = damp if damp == "zero" else "Becke-Johson"
-        print(f"   D3-dispersion correction with {which} damping:\n")
-    # print "\n   Atoms  Types  C6            C8            E6              E8"
-    if damp == "zero":
-        if s6 == 0.0 or rs6 == 0.0 or s8 == 0.0:
-            s6, rs6, s8 = ZERO_PARMS[functional]
-        else:
-            if verbose:
-                print(" manual parameters have been defined")
+        ## Compute and output the individual components of the D3 energy correction ##
         if verbose:
-            print(f"   Zero-damping parameters: s6 = {s6}; rs6 = {rs6}; s8 = {s8}")
-
-    if damp == "bj":
-        if s6 == 0.0 or s8 == 0.0 or a1 == 0.0 or a2 == 0.0:
-            s6, a1, s8, a2 = BJ_PARMS[functional]
-        else:
+            which = damp if damp == "zero" else "Becke-Johson"
+            print(f"   D3-dispersion correction with {which} damping:\n")
+        # print "\n   Atoms  Types  C6            C8            E6              E8"
+        if damp == "zero":
+            if s6 == 0.0 or rs6 == 0.0 or s8 == 0.0:
+                s6, rs6, s8 = ZERO_PARMS[functional]
+            else:
+                if verbose:
+                    print(" manual parameters have been defined")
             if verbose:
-                print(" manual parameters have been defined")
-        if verbose:
-            print(
-                f"   BJ-damping parameters: s6 = {s6}; s8 = {s8}; a1 = {a1}; a2 = {a2}"
-            )
+                print(f"   Zero-damping parameters: s6 = {s6}; rs6 = {rs6}; s8 = {s8}")
 
-    if verbose:
-        if threebody == False:
-            print("   3-body term will not be calculated")
-        else:
-            print("   Including the Axilrod-Teller-Muto 3-body dispersion term")
-        if intermolecular == True:
-            print(
-                "   Only computing intermolecular dispersion interactions! This is not the total D3-correction\n"
-            )
-
-    for j in range(natom):
-        ## This could be used to 'switch off' dispersion between bonded or geminal atoms ##
-        scaling = False
-        for k in range(j + 1, natom):
-            scalefactor = 1.0
-
-            if intermolecular == True:
-                if mols[j] == mols[k]:
-                    scalefactor = 0
-                    print(f"   --- Ignoring interaction between atoms {j+1} and {k+1}")
-
-            if scaling == True and bond_index is not None:
-                if bond_index[j][k] == 1:
-                    scalefactor = 0
-                for l in range(natom):
-                    if (
-                        bond_index[j][l] != 0
-                        and bond_index[k][l] != 0
-                        and j != k
-                        and bond_index[j][k] == 0
-                    ):
-                        scalefactor = 0
-                    for m in range(natom):
-                        if (
-                            bond_index[j][l] != 0
-                            and bond_index[l][m] != 0
-                            and bond_index[k][m] != 0
-                            and j != m
-                            and k != l
-                            and bond_index[j][m] == 0
-                        ):
-                            scalefactor = 1 / 1.2
-
-            if k > j:
-                ## Pythagoras in 3D to work out distance ##
-                totdist = jnp.sqrt(
-                    (coordinates[3 * j] - coordinates[3 * k]) ** 2
-                    + (coordinates[3 * j + 1] - coordinates[3 * k + 1]) ** 2
-                    + (coordinates[3 * j + 2] - coordinates[3 * k + 2]) ** 2
+        if damp == "bj":
+            if s6 == 0.0 or s8 == 0.0 or a1 == 0.0 or a2 == 0.0:
+                s6, a1, s8, a2 = BJ_PARMS[functional]
+            else:
+                if verbose:
+                    print(" manual parameters have been defined")
+            if verbose:
+                print(
+                    f"   BJ-damping parameters: s6 = {s6}; s8 = {s8}; a1 = {a1}; a2 = {a2}"
                 )
 
-                C6jk = getc6(C6AB, mxc, charges, cn, j, k)
+        if verbose:
+            if threebody == False:
+                print("   3-body term will not be calculated")
+            else:
+                print("   Including the Axilrod-Teller-Muto 3-body dispersion term")
+            if intermolecular == True:
+                print(
+                    "   Only computing intermolecular dispersion interactions! This is not the total D3-correction\n"
+                )
 
-                ## C8 parameters depend on C6 recursively
-                atomA = int(charges[j])
-                atomB = int(charges[k])
+        for j in range(natom):
+            ## This could be used to 'switch off' dispersion between bonded or geminal atoms ##
+            scaling = False
+            for k in range(j + 1, natom):
+                scalefactor = 1.0
 
-                C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
-                C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2.0) / C6jk
+                if intermolecular == True:
+                    if mols[j] == mols[k]:
+                        scalefactor = 0
+                        print(f"   --- Ignoring interaction between atoms {j+1} and {k+1}")
 
-                # Evaluation of the attractive term dependent on R^-6 and R^-8
-                if damp == "zero":
-                    dist = totdist
-                    rr = RAB[atomA][atomB] / dist
-                    tmp1 = rs6 * rr
-                    damp6 = 1 / (1 + 6 * jnp.power(tmp1, ALPHA6))
-                    tmp2 = rs8 * rr
-                    damp8 = 1 / (1 + 6 * jnp.power(tmp2, ALPHA8))
+                if scaling == True and bond_index is not None:
+                    if bond_index[j][k] == 1:
+                        scalefactor = 0
+                    for l in range(natom):
+                        if (
+                            bond_index[j][l] != 0
+                            and bond_index[k][l] != 0
+                            and j != k
+                            and bond_index[j][k] == 0
+                        ):
+                            scalefactor = 0
+                        for m in range(natom):
+                            if (
+                                bond_index[j][l] != 0
+                                and bond_index[l][m] != 0
+                                and bond_index[k][m] != 0
+                                and j != m
+                                and k != l
+                                and bond_index[j][m] == 0
+                            ):
+                                scalefactor = 1 / 1.2
 
-                    attractive_r6_term = (
-                        -s6 * C6jk * damp6 / jnp.power(dist, 6) * scalefactor
-                    )
-                    attractive_r8_term = (
-                        -s8 * C8jk * damp8 / jnp.power(dist, 8) * scalefactor
-                    )
+                if k > j:
+                    ## Pythagoras in 3D to work out distance ##
+                    totdist = derv(derv_dist,[j,k,*coordinates],2 *[0] + d_order)
 
-                if damp == "bj":
-                    dist = totdist
-                    rr = RAB[atomA][atomB] / dist
-                    rr = math.pow((C8jk / C6jk), 0.5)
-                    tmp1 = a1 * rr + a2
-                    damp6 = math.pow(tmp1, 6)
-                    damp8 = math.pow(tmp1, 8)
+                    C6jk = getc6(C6AB, mxc, charges, cn, j, k)
 
-                    attractive_r6_term = (
-                        -s6 * C6jk / (math.pow(dist, 6) + damp6) * scalefactor
-                    )
-                    attractive_r8_term = (
-                        -s8 * C8jk / (math.pow(dist, 8) + damp8) * scalefactor
-                    )
+                    ## C8 parameters depend on C6 recursively
+                    atomA = int(charges[j])
+                    atomB = int(charges[k])
 
-                if pairwise == True and scalefactor != 0:
-                    print(
-                        f"   --- Pairwise interaction between atoms {j+1} and {k+1}: Edisp = {attractive_r6_term+attractive_r8_term:.6f} kcal/mol",
-                    )
+                    C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
+                    C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2.0) / C6jk
 
-                attractive_r6_vdw += attractive_r6_term
-                attractive_r8_vdw += attractive_r8_term
+                    # Evaluation of the attractive term dependent on R^-6 and R^-8
+                    if damp == "zero":
+                        dist = totdist
+                        rr = RAB[atomA][atomB] / dist
+                        tmp1 = rs6 * rr
+                        damp6 = 1 / (1 + 6 * jnp.power(tmp1, ALPHA6))
+                        tmp2 = rs8 * rr
+                        damp8 = 1 / (1 + 6 * jnp.power(tmp2, ALPHA8))
 
-                jk = int(lin(k, j))
-                icomp[jk] = 1
-                cc6ab[jk] = jnp.sqrt(C6jk)
-                r2ab[jk] = dist ** 2
-                dmp[jk] = (1.0 / rr) ** (1.0 / 3.0)
+                        attractive_r6_term = (
+                            -s6 * C6jk * damp6 / jnp.power(dist, 6) * scalefactor
+                        )
+                        attractive_r8_term = (
+                            -s8 * C8jk * damp8 / jnp.power(dist, 8) * scalefactor
+                        )
 
-    e63 = 0.0
-    for iat in range(natom):
-        for jat in range(natom):
-            ij = int(lin(jat, iat))
-            if icomp[ij] == 1:
-                for kat in range(jat, natom):
-                    ik = int(lin(kat, iat))
-                    jk = int(lin(kat, jat))
+                    if damp == "bj":
+                        dist = totdist
+                        rr = RAB[atomA][atomB] / dist
+                        rr = math.pow((C8jk / C6jk), 0.5)
+                        tmp1 = a1 * rr + a2
+                        damp6 = math.pow(tmp1, 6)
+                        damp8 = math.pow(tmp1, 8)
 
-                    if kat > jat and jat > iat and icomp[ik] != 0 and icomp[jk] != 0:
-                        rav = (4.0 / 3.0) / (dmp[ik] * dmp[jk] * dmp[ij])
-                        tmp = 1.0 / (1.0 + 6.0 * rav ** ALPHA6)
+                        attractive_r6_term = (
+                            -s6 * C6jk / (math.pow(dist, 6) + damp6) * scalefactor
+                        )
+                        attractive_r8_term = (
+                            -s8 * C8jk / (math.pow(dist, 8) + damp8) * scalefactor
+                        )
 
-                        c9 = cc6ab[ij] * cc6ab[ik] * cc6ab[jk]
-                        d2 = [0] * 3
-                        d2[0] = r2ab[ij]
-                        d2[1] = r2ab[jk]
-                        d2[2] = r2ab[ik]
-                        t1 = (d2[0] + d2[1] - d2[2]) / jnp.sqrt(d2[0] * d2[1])
-                        t2 = (d2[0] + d2[2] - d2[1]) / jnp.sqrt(d2[0] * d2[2])
-                        t3 = (d2[2] + d2[1] - d2[0]) / jnp.sqrt(d2[1] * d2[2])
-                        ang = 0.375 * t1 * t2 * t3 + 1.0
-                        e63 = e63 + tmp * c9 * ang / (d2[0] * d2[1] * d2[2]) ** 1.50
+                    if pairwise == True and scalefactor != 0:
+                        print(
+                            f"   --- Pairwise interaction between atoms {j+1} and {k+1}: Edisp = {attractive_r6_term+attractive_r8_term:.6f} kcal/mol",
+                        )
 
-    repulsive_abc_term = s6 * e63
-    repulsive_abc += repulsive_abc_term
+                    attractive_r6_vdw += attractive_r6_term
+                    attractive_r8_vdw += attractive_r8_term
 
-    return attractive_r6_vdw + attractive_r8_vdw #, repulsive_abc
+                    jk = int(lin(k, j))
+                    icomp[jk] = 1
+                    cc6ab[jk] = jnp.sqrt(C6jk)
+                    r2ab[jk] = dist ** 2
+                    dmp[jk] = (1.0 / rr) ** (1.0 / 3.0)
+
+        e63 = 0.0
+        for iat in range(natom):
+            for jat in range(natom):
+                ij = int(lin(jat, iat))
+                if icomp[ij] == 1:
+                    for kat in range(jat, natom):
+                        ik = int(lin(kat, iat))
+                        jk = int(lin(kat, jat))
+
+                        if kat > jat and jat > iat and icomp[ik] != 0 and icomp[jk] != 0:
+                            rav = (4.0 / 3.0) / (dmp[ik] * dmp[jk] * dmp[ij])
+                            tmp = 1.0 / (1.0 + 6.0 * rav ** ALPHA6)
+
+                            c9 = cc6ab[ij] * cc6ab[ik] * cc6ab[jk]
+                            d2 = [0] * 3
+                            d2[0] = r2ab[ij]
+                            d2[1] = r2ab[jk]
+                            d2[2] = r2ab[ik]
+                            t1 = (d2[0] + d2[1] - d2[2]) / jnp.sqrt(d2[0] * d2[1])
+                            t2 = (d2[0] + d2[2] - d2[1]) / jnp.sqrt(d2[0] * d2[2])
+                            t3 = (d2[2] + d2[1] - d2[0]) / jnp.sqrt(d2[1] * d2[2])
+                            ang = 0.375 * t1 * t2 * t3 + 1.0
+                            e63 = e63 + tmp * c9 * ang / (d2[0] * d2[1] * d2[2]) ** 1.50
+
+        repulsive_abc_term = s6 * e63
+        repulsive_abc += repulsive_abc_term
+        dervs.append([attractive_r6_vdw, attractive_r8_vdw, repulsive_abc])
+
+    return derv
 
 
 def main():
