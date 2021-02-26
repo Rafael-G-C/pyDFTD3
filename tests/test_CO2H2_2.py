@@ -35,9 +35,8 @@ import pytest
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
 from dftd3.constants import AU_TO_ANG, AU_TO_KCAL
-from dftd3.dftd3 import d3
+from dftd3.dftd3 import D3_derivatives
 from dftd3.utils import E_to_index
-from dftd3.jax_diff import D3_derivatives
 HERE = Path(__file__).parents[1]
 
 
@@ -90,7 +89,7 @@ def _from_log(inp):
     ids=["from_txt"]#, "from_com", "from_log", "from_json"],
 )
 def test_CO2H2_2(coordinates, charges, functional, damping, ref):
-    d3_dervs = D3_derivatives(charges,functional,damping,1,coordinates)
+    d3_dervs = D3_derivatives(coordinates,charges,functional=functional,damp=damping,order=1)
     """
     r6, r8, _ = d3(
         coordinates,
