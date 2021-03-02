@@ -34,7 +34,7 @@ from pathlib import Path
 import pytest
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
-from dftd3.constants import AU_TO_ANG, AU_TO_KCAL
+from dftd3.constants import AU_TO_KCAL
 from dftd3.dftd3 import d3
 from dftd3.utils import E_to_index
 
@@ -80,7 +80,7 @@ def _from_log(inp):
     ],
 )
 @pytest.mark.parametrize(
-    "coordinates,atoms,functional",
+    "atoms,coordinates,functional",
     [
         (_from_txt(HERE / "examples/formic_acid_dimer.txt")),
         (_from_com(HERE / "examples/formic_acid_dimer.com")),
@@ -89,7 +89,7 @@ def _from_log(inp):
     ],
     ids=["from_txt", "from_com", "from_log", "from_json"],
 )
-def test_CO2H2_2(coordinates, atoms, functional, damping, ref):
+def test_CO2H2_2(atoms, coordinates, functional, damping, ref):
     r6, r8, _ = d3(
         atoms,
         coordinates,

@@ -64,7 +64,7 @@ def getMollist(bondmatrix, startatom):
     return atomlist
 
 
-def ncoord(natom, atomtype, coordinates, k1=16, k2=4 / 3):
+def ncoord(atomtype, coordinates, k1=16, k2=4 / 3):
     """Calculation of atomic coordination numbers.
 
     Notes
@@ -76,13 +76,14 @@ def ncoord(natom, atomtype, coordinates, k1=16, k2=4 / 3):
 
     These values are copied verbatim from Grimme's code.
     """
+
+    natom = len(atomtype)
+
+    check_inputs(atoms=atomtype, coordinates=coordinates)
+
     coordinates = [coordinate * AU_TO_ANG for coordinate in coordinates]
     cn = []
 
-    if natom != len(coordinates) // 3:
-        raise RuntimeError(
-            "The size of the coordinates and atom types arrays do not match"
-        )
     for i in range(natom):
         xn = 0.0
         for iat in range(natom):
@@ -155,3 +156,13 @@ def getc6(c6ab, mxc, atomtype, cn, a, b, k3=-4.0):
         raise RuntimeError("Computation of C6 failed.")
 
     return c6
+
+
+def check_inputs(*, atoms, coordinates):
+
+    natom = len(atoms)
+
+    if natom != len(coordinates) // 3:
+        raise RuntimeError(
+            f"The size of the coordinates (3*{len(coordinates) // 3}) and atom types ({natom}) arrays do not match!"
+        )

@@ -43,7 +43,7 @@ from .constants import (
     ALPHA8,
 )
 from .parameters import BJ_PARMS, R2R4, RAB, ZERO_PARMS, C6AB
-from .utils import E_to_index, getc6, getMollist, lin, ncoord
+from .utils import getc6, getMollist, lin, ncoord, check_inputs
 
 """
 This was a little exercise to translate Grimme's D3
@@ -66,8 +66,8 @@ rs8 = 1.0
 
 
 def d3(
-    coordinates,
     atoms,
+    coordinates,
     *,
     functional,
     bond_index=None,
@@ -114,7 +114,7 @@ def d3(
                 break
 
     # Coordination number based on covalent radii
-    cn = ncoord(natom, atoms, coordinates)
+    cn = ncoord(atoms, coordinates)
 
     # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
     for j in range(natom):
@@ -351,6 +351,8 @@ def main():
             atoms = data.ATOMTYPES
             coordinates = data.CARTESIANS
             functional = data.FUNCTIONAL
+
+        check_inputs(atoms=atoms, coordinates=coordinates)
 
         r6, r8, abc = d3(
             atoms,
