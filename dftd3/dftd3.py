@@ -290,7 +290,7 @@ def d3(
     repulsive_abc_term = s6 * e63
     repulsive_abc += repulsive_abc_term
 
-    return attractive_r6_vdw + attractive_r8_vdw #, repulsive_abc
+    return attractive_r6_vdw + attractive_r8_vdw + repulsive_abc
 
 
 def main():

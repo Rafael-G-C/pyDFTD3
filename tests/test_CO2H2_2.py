@@ -90,7 +90,7 @@ def _from_log(inp):
     ids=["from_txt"]#, "from_com", "from_log", "from_json"],
 )
 def test_CO2H2_2(coordinates, charges, functional, damping, ref):
-    d3_dervs = D3_derivatives(charges,functional,damping,2,coordinates)
+    d3_dervs = D3_derivatives(charges,functional,damping,1,coordinates)
     """
     r6, r8, _ = d3(
         coordinates,

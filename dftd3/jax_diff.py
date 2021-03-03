@@ -1,3 +1,4 @@
+from dftd3.constants import AU_TO_KCAL
 from .dftd3 import d3
 from itertools import product
 from jax.config import config
@@ -54,11 +55,11 @@ def D3_derivatives(charges, functional, damp, order, coordinates):
 
     combo = product(range(num_variables), repeat=order)
     derivative_orders = map(lambda x: distribute(x, num_variables), combo)
-
+    derivative_orders = list(derivative_orders)[0:1]
     for d_order in derivative_orders:
-        dervs.append(
-            derv(d3, [charges, *coordinates], d_order)
+        dervs.append(AU_TO_KCAL *
+            derv(d3, [charges, *coordinates], [0] + d_order)
         )
 
-    dervs = np.array(dervs).reshape((natoms, 3) * order)
+    #dervs = np.array(dervs).reshape((natoms, 3) * order)
     return dervs
