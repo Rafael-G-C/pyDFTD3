@@ -82,11 +82,38 @@ def _from_log(inp):
     ids=["from_txt", "from_com", "from_log", "from_json"],
 )
 @pytest.mark.parametrize(
+    "damping,ref",
+    [
+        # reference numbers from LSDALTON
+        ("zero", -0.005259455303),
+        ("bj", -0.009129483944),
+    ],
+    ids=[
+        "zero-0",
+        "bj-0",
+    ],
+)
+def test_energy(coordinates, charges, functional, damping, ref):
+    config = D3Configuration(functional=functional, damp=damping)
+
+    d3_au = d3(config, charges, *coordinates)
+    assert d3_au == pytest.approx(ref, rel=1.0e-5)
+
+
+@pytest.mark.parametrize(
+    "coordinates,charges,functional",
+    [
+        (_from_txt(HERE / "examples/formic_acid_dimer.txt")),
+        (_from_com(HERE / "examples/formic_acid_dimer.com")),
+        (_from_log(HERE / "examples/formic_acid_dimer.log")),
+        (_from_json(HERE / "examples/formic_acid_dimer.json")),
+    ],
+    ids=["from_txt", "from_com", "from_log", "from_json"],
+)
+@pytest.mark.parametrize(
     "damping,ref,order",
     [
         # reference numbers from LSDALTON
-        ("zero", -0.005259455303, 0),
-        ("bj", -0.009129483944, 0),
         (
             "zero",
             # fmt: off
@@ -129,18 +156,12 @@ def _from_log(inp):
         ),
     ],
     ids=[
-        "zero-0",
-        "bj-0",
         "zero-1",
         "bj-1",
     ],
 )
-def test_CO2H2_2(coordinates, charges, functional, damping, ref, order):
+def test_derivatives(coordinates, charges, functional, damping, ref, order):
     config = D3Configuration(functional=functional, damp=damping)
-
-    if order == 0:
-        d3_au = d3(config, charges, *coordinates)
-        assert d3_au == pytest.approx(ref, rel=1.0e-5)
 
     d3_dervs = D3_derivatives(order, config, charges, *coordinates)
     for i, x in np.ndenumerate(d3_dervs):
