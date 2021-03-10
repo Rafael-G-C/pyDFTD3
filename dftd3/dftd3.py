@@ -43,7 +43,6 @@ Last modified:  Mar 20, 2016
 """
 
 import json
-import math
 from dataclasses import InitVar, dataclass, field
 from typing import List
 
@@ -69,7 +68,6 @@ class D3Configuration:
     rs6: float = field(init=False)
     s8: float = field(init=False)
     a1: float = field(init=False)
-    a2: float = field(init=False)
     a2: float = field(init=False)
     threebody: bool = False
     bond_index: List[List[int]] = None
@@ -97,6 +95,9 @@ class D3Configuration:
                 self.s8 = _s8
                 where = "user-defined"
             cfg += f"    - Damping parameters ({where}): s6 = {self.s6}; rs6 = {self.rs6}; s8 = {self.s8}\n"
+            # initialize remaining parameters
+            self.a1 = _a1
+            self.a2 = _a2
         elif self.damp.casefold() == "bj".casefold():
             if any(map(lambda x: x == 0.0, [_s6, _s8, _a1, _a2])):
                 self.s6, self.a1, self.s8, self.a2 = BJ_PARMS[self.functional]
@@ -108,6 +109,8 @@ class D3Configuration:
                 self.a2 = _a2
                 where = "user-defined"
             cfg += f"    - Damping parameters: s6 = {self.s6}; s8 = {self.s8}; a1 = {self.a1}; a2 = {self.a2}\n"
+            # initialize remaining parameters
+            self.rs6 = _rs6
         else:
             raise RuntimeError(f"{self.damp} is an unknown damping scheme.")
 
@@ -175,10 +178,10 @@ def d3(
         z = int(charges[j])
 
         # C8 coefficient
-        C8jj = 3.0 * C6jj * math.pow(R2R4[z], 2.0)
+        C8jj = 3.0 * C6jj * jnp.power(R2R4[z], 2)
 
         # C10 coefficient
-        C10jj = 49.0 / 40.0 * math.pow(C8jj, 2.0) / C6jj
+        C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2) / C6jj
 
     icomp = [0] * 100000
     cc6ab = [0] * 100000
@@ -237,7 +240,7 @@ def d3(
                 atomB = int(charges[k])
 
                 C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
-                C10jk = 49.0 / 40.0 * math.pow(C8jk, 2.0) / C6jk
+                C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2) / C6jk
 
                 # Evaluation of the attractive term dependent on R^-6 and R^-8
                 if config.damp.casefold() == "zero".casefold():

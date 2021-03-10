@@ -1,6 +1,7 @@
 from itertools import product
 
 import numpy as np
+from jax import grad
 from jax.config import config
 
 from .dftd3 import d3
@@ -54,9 +55,8 @@ def D3_derivatives(order, config, charges, *coordinates):
 
     combo = product(range(num_variables), repeat=order)
     derivative_orders = map(lambda x: distribute(x, num_variables), combo)
-    derivative_orders = list(derivative_orders)[0:1]
     for d_order in derivative_orders:
-        dervs.append(derv(d3, [config, charges, *coordinates], [0] + d_order))
+        dervs.append(derv(d3, [config, charges, *coordinates], 2 * [0] + d_order))
 
     dervs = np.array(dervs).reshape((natoms, 3) * order)
 
