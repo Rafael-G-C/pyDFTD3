@@ -3,3 +3,5 @@ isort
 qcelemental
 prettytable
 pytest
+jax
+jaxlib
