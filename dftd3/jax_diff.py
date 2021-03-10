@@ -1,13 +1,9 @@
-from dftd3.constants import AU_TO_KCAL
+import numpy as np
 from .dftd3 import d3
 from itertools import product
 from jax.config import config
-import numpy as np
 
 config.update("jax_enable_x64", True)
-
-import jax.numpy as jnp
-from jax import grad, jacfwd, jacrev
 
 
 def _derv_sequence(orders):
@@ -37,6 +33,7 @@ def derv(fun, variables, orders) -> float:
         functions.append(grad(functions[i], (order)))
     return functions[-1](*variables)
 
+
 def distribute(indices, num_variables):
     l = [0 for _ in range(num_variables)]
     for index in indices:
@@ -45,7 +42,7 @@ def distribute(indices, num_variables):
 
 
 # this will generate the derivatives layer
-def D3_derivatives(charges, functional, damp, order, coordinates):
+def D3_derivatives(order, config, charges, *coordinates):
     """
     1 --> gradient; 2 --> hessian; 3 --> 3rd derivatives; etc...
     """
@@ -57,9 +54,8 @@ def D3_derivatives(charges, functional, damp, order, coordinates):
     derivative_orders = map(lambda x: distribute(x, num_variables), combo)
     derivative_orders = list(derivative_orders)[0:1]
     for d_order in derivative_orders:
-        dervs.append(AU_TO_KCAL *
-            derv(d3, [charges, *coordinates], [0] + d_order)
-        )
+        dervs.append(derv(d3, [config, charges, *coordinates], [0] + d_order))
 
-    #dervs = np.array(dervs).reshape((natoms, 3) * order)
+    dervs = np.array(dervs).reshape((natoms, 3) * order)
+
     return dervs

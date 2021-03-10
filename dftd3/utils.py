@@ -77,9 +77,9 @@ def ncoord(charges, coordinates, k1=16, k2=4 / 3):
     These values are copied verbatim from Grimme's code.
     """
 
-    natom = len(atomtype)
+    natom = len(charges)
 
-    check_inputs(atoms=atomtype, coordinates=coordinates)
+    check_inputs(charges=charges, coordinates=coordinates)
 
     coordinates = [coordinate * AU_TO_ANG for coordinate in coordinates]
     cn = []
@@ -158,9 +158,9 @@ def getc6(c6ab, mxc, atomtype, cn, a, b, k3=-4.0):
     return c6
 
 
-def check_inputs(*, atoms, coordinates):
+def check_inputs(*, charges, coordinates):
 
-    natom = len(atoms)
+    natom = len(charges)
 
     if natom != len(coordinates) // 3:
         raise RuntimeError(
