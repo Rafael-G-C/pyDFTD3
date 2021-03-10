@@ -29,11 +29,12 @@
 
 
 from math import exp, sqrt
+
 import jax.numpy as jnp
 from qcelemental import periodictable
 
-from .parameters import RCOV
 from .constants import AU_TO_ANG
+from .parameters import RCOV
 
 
 def E_to_index(element):

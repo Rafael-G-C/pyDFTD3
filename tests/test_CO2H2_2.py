@@ -34,9 +34,9 @@ from pathlib import Path
 import pytest
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
-from dftd3.dftd3 import d3, D3Configuration
-from dftd3.utils import E_to_index
+from dftd3.dftd3 import D3Configuration, d3
 from dftd3.jax_diff import D3_derivatives
+from dftd3.utils import E_to_index
 
 HERE = Path(__file__).parents[1]
 

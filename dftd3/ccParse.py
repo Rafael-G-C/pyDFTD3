@@ -34,9 +34,11 @@
 
 import os
 import sys
-from .utils import E_to_index
+
 from qcelemental import periodictable
+
 from .constants import AU_TO_ANG
+from .utils import E_to_index
 
 
 ## Check for integer when parsing ##

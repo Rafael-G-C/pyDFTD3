@@ -1,7 +1,9 @@
-import numpy as np
-from .dftd3 import d3
 from itertools import product
+
+import numpy as np
 from jax.config import config
+
+from .dftd3 import d3
 
 config.update("jax_enable_x64", True)
 

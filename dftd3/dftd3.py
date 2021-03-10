@@ -42,9 +42,9 @@ Written by:  Rob Paton and Kelvin Jackson
 Last modified:  Mar 20, 2016
 """
 
-from dataclasses import dataclass, field, InitVar
 import json
 import math
+from dataclasses import InitVar, dataclass, field
 from typing import List
 
 import jax.numpy as jnp
@@ -55,13 +55,8 @@ config.update("jax_enable_x64", True)
 
 from .ccParse import *
 from .cli import cli
-from .constants import (
-    ALPHA6,
-    ALPHA8,
-    AU_TO_ANG,
-    MAX_CONNECTIVITY,
-    MAX_ELEMENTS,
-)
+from .constants import (ALPHA6, ALPHA8, AU_TO_ANG, MAX_CONNECTIVITY,
+                        MAX_ELEMENTS)
 from .parameters import BJ_PARMS, C6AB, R2R4, RAB, ZERO_PARMS
 from .utils import check_inputs, getc6, getMollist, lin, ncoord
 
