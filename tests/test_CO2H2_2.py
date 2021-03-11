@@ -33,11 +33,12 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+from qcelemental import periodictable as PT
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
-from dftd3.dftd3 import D3Configuration, d3
-from dftd3.jax_diff import D3_derivatives
-from dftd3.utils import E_to_index
+from dftd3.dftd3 import D3_derivatives, D3Configuration, d3
+from dftd3.jax_diff import _derv_sequence
+from dftd3.utils import der_order
 
 HERE = Path(__file__).parents[1]
 
@@ -46,7 +47,7 @@ def _from_json(inp):
     with open(inp, "r") as j:
         data = json.load(j)
 
-    charges = [E_to_index(atom) for atom in data["molecule"]["symbols"]]
+    charges = [PT.to_Z(atom) for atom in data["molecule"]["symbols"]]
 
     # reshape coordinates as (nat, 3) and convert to angstrom
     cartesians = [coordinate for coordinate in data["molecule"]["geometry"]]
@@ -101,16 +102,6 @@ def test_energy(coordinates, charges, functional, damping, ref):
 
 
 @pytest.mark.parametrize(
-    "coordinates,charges,functional",
-    [
-        (_from_txt(HERE / "examples/formic_acid_dimer.txt")),
-        (_from_com(HERE / "examples/formic_acid_dimer.com")),
-        (_from_log(HERE / "examples/formic_acid_dimer.log")),
-        (_from_json(HERE / "examples/formic_acid_dimer.json")),
-    ],
-    ids=["from_txt", "from_com", "from_log", "from_json"],
-)
-@pytest.mark.parametrize(
     "damping,ref,order",
     [
         # reference numbers from LSDALTON
@@ -160,11 +151,20 @@ def test_energy(coordinates, charges, functional, damping, ref):
         "bj-1",
     ],
 )
-def test_derivatives(coordinates, charges, functional, damping, ref, order):
+def test_derivatives(damping, ref, order):
+    coordinates, charges, functional = _from_json(
+        HERE / "examples/formic_acid_dimer.json"
+    )
     config = D3Configuration(functional=functional, damp=damping)
 
     d3_dervs = D3_derivatives(order, config, charges, *coordinates)
     for i, x in np.ndenumerate(d3_dervs):
         assert x == pytest.approx(
             ref[i], rel=1.0e-5, abs=1.0e-8
-        ), f"Element {i} of {order}-th order derivative differs from reference (Delta = {x - ref[i]})"
+        ), f"Element {i} of {der_order(order)} order derivative differs from reference (Delta = {x - ref[i]})"
+
+
+def test_derv_sequence():
+    assert _derv_sequence((3, 2, 1, 0)) == [0, 0, 0, 1, 1, 2]
+    assert _derv_sequence((0, 1, 2, 3)) == [1, 2, 2, 3, 3, 3]
+    assert _derv_sequence((0, 1, 0, 1)) == [1, 3]

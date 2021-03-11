@@ -35,10 +35,9 @@
 import os
 import sys
 
-from qcelemental import periodictable
+from qcelemental import periodictable as PT
 
 from .constants import AU_TO_ANG
-from .utils import E_to_index
 
 
 ## Check for integer when parsing ##
@@ -48,10 +47,6 @@ def is_number(s):
         return True
     except ValueError:
         return False
-
-
-def elementID(massno):
-    return periodictable.to_symbol(massno)
 
 
 # Read Cartesian coordinate data from a PDB file
@@ -66,7 +61,7 @@ class getpdbData:
             self.CARTESIANS = []
             for i in range(0, len(inlines)):
                 if inlines[i].find("ATOM") > -1 or inlines[i].find("HETATM") > -1:
-                    self.CHARGES.append(float((E_to_index(inlines[i].split()[2]))))
+                    self.CHARGES.append(float((PT.to_Z(inlines[i].split()[2]))))
                     self.CARTESIANS += [
                         float(coordinate) / AU_TO_ANG
                         for coordinate in inlines[i].split()[4:7]
@@ -98,7 +93,7 @@ class getinData:
                 if len(inlines[i].split()) == 0:
                     break
                 else:
-                    self.CHARGES.append(E_to_index(inlines[i].split()[0]))
+                    self.CHARGES.append(PT.to_Z(inlines[i].split()[0]))
 
         def getCARTESIANS(self, inlines, natoms):
             self.CARTESIANS = []
@@ -200,7 +195,7 @@ class getoutData:
                 pass
             else:
                 for i in range(standor + 5, standor + 5 + self.NATOMS):
-                    self.CHARGES.append(int(outlines[i].split()[1]) - 1)
+                    self.CHARGES.append(int(outlines[i].split()[1]))
                     self.ATOMICTYPES.append(int(outlines[i].split()[2]))
 
                     if anharmonic_geom == 0:
@@ -247,7 +242,7 @@ class get_simple_data:
             for line in lines:
                 if get_geom == True:
                     geometry_atoms = line.split()
-                    self.CHARGES.append(float(E_to_index(geometry_atoms[0])))
+                    self.CHARGES.append(float(PT.to_Z(geometry_atoms[0])))
                     self.CARTESIANS += [
                         float(coordinate) / AU_TO_ANG
                         for coordinate in geometry_atoms[1:4]

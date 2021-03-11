@@ -43,10 +43,13 @@ Last modified:  Mar 20, 2016
 """
 
 import json
-from dataclasses import InitVar, dataclass, field
+from dataclasses import asdict
+from itertools import product
 from typing import List
 
 import jax.numpy as jnp
+import numpy as np
+import qcelemental as qcel
 from jax.config import config
 from prettytable import PrettyTable
 
@@ -54,79 +57,23 @@ config.update("jax_enable_x64", True)
 
 from .ccParse import *
 from .cli import cli
-from .constants import (ALPHA6, ALPHA8, AU_TO_ANG, MAX_CONNECTIVITY,
-                        MAX_ELEMENTS)
-from .parameters import BJ_PARMS, C6AB, R2R4, RAB, ZERO_PARMS
-from .utils import check_inputs, getc6, getMollist, lin, ncoord
-
-
-@dataclass
-class D3Configuration:
-    functional: str
-    damp: str = "zero"
-    s6: float = field(init=False)
-    rs6: float = field(init=False)
-    s8: float = field(init=False)
-    a1: float = field(init=False)
-    a2: float = field(init=False)
-    threebody: bool = False
-    bond_index: List[List[int]] = None
-    intermolecular: bool = False
-    pairwise: bool = False
-
-    # initialization-only variables
-    _s6: InitVar[float] = 0.0
-    _rs6: InitVar[float] = 0.0
-    _s8: InitVar[float] = 0.0
-    _a1: InitVar[float] = 0.0
-    _a2: InitVar[float] = 0.0
-
-    def __post_init__(self, _s6, _rs6, _s8, _a1, _a2):
-        which = self.damp if self.damp == "zero" else "Becke-Johson"
-        cfg = f">>> D3-dispersion correction with {which} damping\n"
-
-        if self.damp.casefold() == "zero".casefold():
-            if any(map(lambda x: x == 0.0, [_s6, _rs6, _s8])):
-                self.s6, self.rs6, self.s8 = ZERO_PARMS[self.functional]
-                where = "from database"
-            else:
-                self.s6 = _s6
-                self.rs6 = _rs6
-                self.s8 = _s8
-                where = "user-defined"
-            cfg += f"    - Damping parameters ({where}): s6 = {self.s6}; rs6 = {self.rs6}; s8 = {self.s8}\n"
-            # initialize remaining parameters
-            self.a1 = _a1
-            self.a2 = _a2
-        elif self.damp.casefold() == "bj".casefold():
-            if any(map(lambda x: x == 0.0, [_s6, _s8, _a1, _a2])):
-                self.s6, self.a1, self.s8, self.a2 = BJ_PARMS[self.functional]
-                where = "from database"
-            else:
-                self.s6 = _s6
-                self.a1 = _a1
-                self.s8 = _s8
-                self.a2 = _a2
-                where = "user-defined"
-            cfg += f"    - Damping parameters: s6 = {self.s6}; s8 = {self.s8}; a1 = {self.a1}; a2 = {self.a2}\n"
-            # initialize remaining parameters
-            self.rs6 = _rs6
-        else:
-            raise RuntimeError(f"{self.damp} is an unknown damping scheme.")
-
-        if not self.threebody:
-            cfg += "    - 3-body term will not be calculated\n"
-        else:
-            cfg += "    - Including the Axilrod-Teller-Muto 3-body dispersion term\n"
-        if self.intermolecular:
-            cfg += "    - Only computing intermolecular dispersion interactions! This is not the total D3-correction\n"
-
-        print(cfg)
+from .constants import ALPHA6, ALPHA8, AU_TO_ANG, MAX_CONNECTIVITY, MAX_ELEMENTS
+from .jax_diff import derv, distribute
+from .parameters import C6AB, R2R4, RAB
+from .utils import (
+    D3Configuration,
+    check_inputs,
+    der_order,
+    getc6,
+    getMollist,
+    lin,
+    ncoord,
+)
 
 
 def d3(
-    config: D3Configuration,
-    charges: List[float],
+    config: "D3Configuration",
+    charges_: List[float],
     *coordinates: float,
 ):
     """The code has a faithful implementation of D3-zero and D3-BJ. There are
@@ -134,6 +81,7 @@ def d3(
     interatomic terms. Without these lines our ‘scalefactor’ is set to 1, which
     is equivalent to standard D3 terms.
     """
+
     # van der Waals attractive R^-6
     attractive_r6_vdw = 0.0
     # van der Waals attractive R^-8
@@ -144,7 +92,9 @@ def d3(
     # not sure what this is...
     rs8 = 1.0
 
-    natom = len(charges)
+    natom = len(charges_)
+    # the charges array is used ONLY for indexing, so we subtract 1 from the one we get as input
+    charges = [x - 1 for x in charges_]
 
     # In case something clever needs to be done wrt inter and intramolecular interactions
     if config.bond_index is not None:
@@ -325,6 +275,35 @@ def d3(
     return attractive_r6_vdw + attractive_r8_vdw + repulsive_abc
 
 
+def D3_derivatives(order, config, charges, *coordinates):
+    """Driver for the calculation of derivatives to arbitrary order.
+
+    Parameters
+    ----------
+    order : int
+      Derivative order
+    config : D3Configuration
+    charges : List[float]
+    coordinates : float
+
+    Returns
+    -------
+    Derivative tensor to desired order.
+    """
+    dervs = []
+    natoms = len(charges)
+    num_variables = 3 * natoms
+
+    combo = product(range(num_variables), repeat=order)
+    derivative_orders = map(lambda x: distribute(x, num_variables), combo)
+    for d_order in derivative_orders:
+        dervs.append(derv(d3, [config, charges, *coordinates], 2 * [0] + d_order))
+
+    dervs = np.array(dervs).reshape((natoms, 3) * order)
+
+    return dervs
+
+
 def main():
     # Takes arguments: (1) damping style, (2) s6, (3) rs6, (4) s8, (5) 3-body on/off, (6) input file(s)
     args = cli()
@@ -335,21 +314,23 @@ def main():
     x = PrettyTable()
     x.field_names = ["Input", "Total (au)"]
 
+    results = {f.stem: {"input": {}, "output": {}} for f in files}
+
     for f in files:
-        extension = f.split(".")[1]
+        extension = f.suffix
         # parse Gaussian input files
-        if extension in ["com", "gjf"]:
+        if extension in [".com", ".gjf"]:
             data = getinData(f)
         # parse Gaussian output files
-        elif extension in ["out", "log"]:
+        elif extension in [".out", ".log"]:
             data = getoutData(f)
         # parse PDB file
-        elif extension == "pdb":
+        elif extension == ".pdb":
             data = getpdbData(f)
         # parse plain text file
-        elif extension == "txt":
+        elif extension == ".txt":
             data = get_simple_data(f)
-        elif extension == "json":
+        elif extension == ".json":
             with open(f, "r") as j:
                 data = json.load(j)
         else:
@@ -386,11 +367,37 @@ def main():
             pairwise=args.pairwise,
         )
 
+        results[f.stem]["input"] = {
+            "molecule": qcel.molparse.from_arrays(
+                geom=coordinates, elez=charges, np_out=False
+            ),
+            "config": asdict(config),
+        }
+
         total_vdw = d3(
             config,
             charges,
             *coordinates,
         )
+
+        results[f.stem]["output"] = {
+            "D3 energy (au)": float(total_vdw),
+        }
+
+        if args.order > 0:
+            d3_diff = D3_derivatives(
+                args.order,
+                config,
+                charges,
+                *coordinates,
+            )
+
+            results[f.stem]["output"] = {
+                f"{der_order(args.order)} order geometric derivative": d3_diff.tolist(),
+            }
+
+        with open(f"{f.stem}.json", "w") as o:
+            json.dump(results, o, indent=2)
 
         # convert to atomic units for final printout
         row = [f, total_vdw]

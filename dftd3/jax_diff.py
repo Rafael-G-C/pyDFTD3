@@ -1,10 +1,5 @@
-from itertools import product
-
-import numpy as np
 from jax import grad
 from jax.config import config
-
-from .dftd3 import d3
 
 config.update("jax_enable_x64", True)
 
@@ -15,12 +10,6 @@ def _derv_sequence(orders):
         if variable_order > 0:
             sequence += variable_order * [variable]
     return sequence
-
-
-def test_derv_sequence():
-    assert _derv_sequence((3, 2, 1, 0)) == [0, 0, 0, 1, 1, 2]
-    assert _derv_sequence((0, 1, 2, 3)) == [1, 2, 2, 3, 3, 3]
-    assert _derv_sequence((0, 1, 0, 1)) == [1, 3]
 
 
 def derv(fun, variables, orders) -> float:
@@ -42,22 +31,3 @@ def distribute(indices, num_variables):
     for index in indices:
         l[index] += 1
     return l
-
-
-# this will generate the derivatives layer
-def D3_derivatives(order, config, charges, *coordinates):
-    """
-    1 --> gradient; 2 --> hessian; 3 --> 3rd derivatives; etc...
-    """
-    dervs = []
-    natoms = len(charges)
-    num_variables = 3 * natoms
-
-    combo = product(range(num_variables), repeat=order)
-    derivative_orders = map(lambda x: distribute(x, num_variables), combo)
-    for d_order in derivative_orders:
-        dervs.append(derv(d3, [config, charges, *coordinates], 2 * [0] + d_order))
-
-    dervs = np.array(dervs).reshape((natoms, 3) * order)
-
-    return dervs
