@@ -28,6 +28,7 @@
 #
 
 import argparse
+from pathlib import Path
 
 
 def cli():
@@ -84,6 +85,13 @@ def cli():
         help="document me",
     )
     cli.add_argument(
+        "--order",
+        action="store",
+        default="0",
+        type=int,
+        help="derivative order to compute",
+    )
+    cli.add_argument(
         "--three",
         action="store_true",
         help="include Axilrod-Teller-Muto 3-body term",
@@ -99,7 +107,7 @@ def cli():
         help="document me",
     )
     cli.add_argument(
-        "infiles", nargs=argparse.REMAINDER, type=str, help="input file(s)"
+        "infiles", nargs=argparse.REMAINDER, type=Path, help="input file(s)"
     )
 
     return cli.parse_args()
