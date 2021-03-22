@@ -275,6 +275,38 @@ def d3(
     return attractive_r6_vdw + attractive_r8_vdw + repulsive_abc
 
 
+def D3_element_wise(elements, config, charges, *coordinates):
+    """Driver for the calculation of chosen derivatives to arbitrary order.
+
+    Parameters
+    ----------
+    elements : tuple
+      following the format Atom,coordinate,Atom,coordinate...
+    config : D3Configuration
+    charges : List[float]
+    coordinates : float
+
+    Returns
+    -------
+    Derivative result for a given adress.
+    """
+    dervs = []
+    derivative_orders = []
+    natoms = len(charges)
+    num_variables = 3 * natoms
+
+    for element in elements:
+        derv_order = [0] * num_variables
+        for directions in range(0, len(element), 2):
+            derv_order[3 * element[directions] + element[directions + 1]] += 1
+        derivative_orders.append(derv_order)
+
+    for d_order in derivative_orders:
+        dervs.append(derv(d3, [config, charges, *coordinates], 2 * [0] + d_order))
+
+    return dervs
+
+
 def D3_derivatives(order, config, charges, *coordinates):
     """Driver for the calculation of derivatives to arbitrary order.
 

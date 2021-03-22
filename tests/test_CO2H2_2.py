@@ -36,7 +36,7 @@ import pytest
 from qcelemental import periodictable as PT
 
 from dftd3.ccParse import get_simple_data, getinData, getoutData
-from dftd3.dftd3 import D3_derivatives, D3Configuration, d3
+from dftd3.dftd3 import D3_derivatives, D3Configuration, d3, D3_element_wise
 from dftd3.jax_diff import _derv_sequence
 from dftd3.utils import der_order
 
@@ -156,8 +156,16 @@ def test_derivatives(damping, ref, order):
         HERE / "examples/formic_acid_dimer.json"
     )
     config = D3Configuration(functional=functional, damp=damping)
+    slices = ((0, 0), (1, 2), (3, 0))
 
     d3_dervs = D3_derivatives(order, config, charges, *coordinates)
+    d3_element_dervs = D3_element_wise(slices, config, charges, *coordinates)
+
+    for element in range(len(d3_element_dervs)):
+        assert d3_element_dervs[element] == pytest.approx(
+            ref[slices[element]], rel=1.0e-5, abs=1.0e-8
+        ), f"matching calculated element {d3_element_dervs[element]} vs {ref[slices[element]]}"
+
     for i, x in np.ndenumerate(d3_dervs):
         assert x == pytest.approx(
             ref[i], rel=1.0e-5, abs=1.0e-8
