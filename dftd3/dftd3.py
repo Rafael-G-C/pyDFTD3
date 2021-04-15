@@ -42,6 +42,8 @@ Written by:  Rob Paton and Kelvin Jackson
 Last modified:  Mar 20, 2016
 """
 
+from functools import partial
+import multiprocessing as mp
 import json
 from dataclasses import asdict
 from itertools import product
@@ -121,17 +123,17 @@ def d3(
     cn = ncoord(charges, coordinates)
 
     # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
-    for j in range(natom):
-        # C6 coefficient
-        C6jj = getc6(C6AB, mxc, charges, cn, j, j)
+    #for j in range(natom):
+    #    # C6 coefficient
+    #    C6jj = getc6(C6AB, mxc, charges, cn, j, j)
 
-        z = int(charges[j])
+    #    z = int(charges[j])
 
-        # C8 coefficient
-        C8jj = 3.0 * C6jj * jnp.power(R2R4[z], 2)
+    #    # C8 coefficient
+    #    C8jj = 3.0 * C6jj * jnp.power(R2R4[z], 2)
 
-        # C10 coefficient
-        C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2) / C6jj
+    #    # C10 coefficient
+    #    C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2) / C6jj
 
     icomp = [0] * 100000
     cc6ab = [0] * 100000
@@ -190,7 +192,7 @@ def d3(
                 atomB = int(charges[k])
 
                 C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
-                C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2) / C6jk
+                #C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2) / C6jk
 
                 # Evaluation of the attractive term dependent on R^-6 and R^-8
                 if config.damp.casefold() == "zero".casefold():
@@ -275,7 +277,7 @@ def d3(
     return attractive_r6_vdw + attractive_r8_vdw + repulsive_abc
 
 
-def D3_element_wise(elements, config, charges, *coordinates):
+def D3_element_wise(elements, config, charges, coordinates):
     """Driver for the calculation of chosen derivatives to arbitrary order.
 
     Parameters
@@ -302,7 +304,9 @@ def D3_element_wise(elements, config, charges, *coordinates):
         derivative_orders.append(derv_order)
 
     for d_order in derivative_orders:
-        dervs.append(derv(d3, [config, charges, *coordinates], 2 * [0] + d_order))
+        dervs.append(
+            derv(2 * [0] + d_order, fun=d3, variables=[config, charges, *coordinates])
+        )
 
     return dervs
 
@@ -322,16 +326,34 @@ def D3_derivatives(order, config, charges, *coordinates):
     -------
     Derivative tensor to desired order.
     """
-    dervs = []
     natoms = len(charges)
     num_variables = 3 * natoms
 
     combo = product(range(num_variables), repeat=order)
-    derivative_orders = map(lambda x: distribute(x, num_variables), combo)
-    for d_order in derivative_orders:
-        dervs.append(derv(d3, [config, charges, *coordinates], 2 * [0] + d_order))
+    derivative_orders = [distribute(x, num_variables) for x in combo]
+    d_jax = [2 * [0] + d for d in derivative_orders]
 
-    dervs = np.array(dervs).reshape((natoms, 3) * order)
+    derivator = partial(
+        derv,
+        fun=d3,
+        variables=[config, charges, *coordinates],
+    )
+
+    if config.nprocs > 1:
+        # split work evenly among the allotted processors
+        work_size = len(derivative_orders) // config.nprocs
+        with mp.Pool(processes=config.nprocs) as p:
+            result = p.map(
+                derivator,
+                d_jax,
+                chunksize=work_size,
+            )
+        dervs = np.array(result).reshape((natoms, 3) * order)
+    else:
+        it = (derivator(d) for d in d_jax)
+        dervs = np.fromiter(it, dtype=float, count=len(derivative_orders)).reshape(
+            (natoms, 3) * order
+        )
 
     return dervs
 
@@ -389,6 +411,7 @@ def main():
         config = D3Configuration(
             functional=functional,
             damp=args.damp,
+            nprocs=args.nprocs,
             _s6=args.s6,
             _rs6=args.rs6,
             _s8=args.s8,
@@ -439,4 +462,6 @@ def main():
 
 
 if __name__ == "__main__":
+    mp.freeze_support()
+    mp.set_start_method("spawn")
     main()

@@ -183,6 +183,7 @@ def check_inputs(*, charges, coordinates):
 class D3Configuration:
     functional: str
     damp: str = "zero"
+    nprocs: int = 1
     s6: float = field(init=False)
     rs6: float = field(init=False)
     s8: float = field(init=False)
