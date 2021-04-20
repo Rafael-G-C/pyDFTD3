@@ -12,7 +12,7 @@ def _derv_sequence(orders):
     return sequence
 
 
-def derv(fun, variables, orders) -> float:
+def derv(orders, *, fun, variables) -> float:
     """
     fun: function to differentiate which expects a certain number of variables
     variables: list of variables at which to differentiate the function

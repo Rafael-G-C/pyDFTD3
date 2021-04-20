@@ -43,6 +43,13 @@ def cli():
         help="damping method: zero (default) or Becke-Johnson",
     )
     cli.add_argument(
+        "--nprocs",
+        action="store",
+        default=1,
+        type=int,
+        help="number of processors to use",
+    )
+    cli.add_argument(
         "--s6",
         action="store",
         default="0.0",
