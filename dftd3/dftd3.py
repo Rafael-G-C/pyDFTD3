@@ -122,19 +122,6 @@ def d3(
     # Coordination number based on covalent radii
     cn = ncoord(charges, coordinates)
 
-    # compute C6, C8, and C10 coefficietns from tabulated values (in C6AB) and fractional coordination
-    #for j in range(natom):
-    #    # C6 coefficient
-    #    C6jj = getc6(C6AB, mxc, charges, cn, j, j)
-
-    #    z = int(charges[j])
-
-    #    # C8 coefficient
-    #    C8jj = 3.0 * C6jj * jnp.power(R2R4[z], 2)
-
-    #    # C10 coefficient
-    #    C10jj = 49.0 / 40.0 * jnp.power(C8jj, 2) / C6jj
-
     icomp = [0] * 100000
     cc6ab = [0] * 100000
     r2ab = [0] * 100000
@@ -178,7 +165,7 @@ def d3(
                             scalefactor = 1 / 1.2
 
             if k > j:
-                ## Pythagoras in 3D to work out distance ##
+                # compute distance
                 totdist = jnp.sqrt(
                     (coordinates[3 * j] - coordinates[3 * k]) ** 2
                     + (coordinates[3 * j + 1] - coordinates[3 * k + 1]) ** 2
@@ -187,12 +174,14 @@ def d3(
 
                 C6jk = getc6(C6AB, mxc, charges, cn, j, k)
 
-                ## C8 parameters depend on C6 recursively
+                # C8 parameters depend on C6 recursively
                 atomA = int(charges[j])
                 atomB = int(charges[k])
 
                 C8jk = 3.0 * C6jk * R2R4[atomA] * R2R4[atomB]
-                #C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2) / C6jk
+
+                # C10 parameters (unused)
+                # C10jk = 49.0 / 40.0 * jnp.power(C8jk, 2) / C6jk
 
                 # Evaluation of the attractive term dependent on R^-6 and R^-8
                 if config.damp.casefold() == "zero".casefold():
@@ -234,11 +223,12 @@ def d3(
                 attractive_r6_vdw += attractive_r6_term
                 attractive_r8_vdw += attractive_r8_term
 
-                jk = int(lin(k, j))
-                icomp[jk] = 1
-                cc6ab[jk] = jnp.sqrt(C6jk)
-                r2ab[jk] = jnp.power(dist, 2)
-                dmp[jk] = jnp.cbrt(1.0 / rr)
+                if config.threebody:
+                    jk = int(lin(k, j))
+                    icomp[jk] = 1
+                    cc6ab[jk] = jnp.sqrt(C6jk)
+                    r2ab[jk] = jnp.power(dist, 2)
+                    dmp[jk] = jnp.cbrt(1.0 / rr)
 
     if config.threebody:
         e63 = 0.0
@@ -277,7 +267,7 @@ def d3(
     return attractive_r6_vdw + attractive_r8_vdw + repulsive_abc
 
 
-def D3_element_wise(elements, config, charges, coordinates):
+def D3_element_wise(elements, config, charges, *coordinates):
     """Driver for the calculation of chosen derivatives to arbitrary order.
 
     Parameters
